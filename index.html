@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>估值儀表板</title>
+<style>
+:root{--bg:#f2f4f3;--card:#fff;--ink:#1b2421;--mute:#66726d;--line:#dde3e0;--accent:#0e5c55;--up:#c8372d;--down:#1e7f4f;--band:#cfe3df;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121816;--card:#1a2220;--ink:#e8eeeb;--mute:#93a19b;--line:#2c3834;--accent:#6fc2b8;--up:#ff7468;--down:#58c98b;--band:#27413d;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121816;--card:#1a2220;--ink:#e8eeeb;--mute:#93a19b;--line:#2c3834;--accent:#6fc2b8;--up:#ff7468;--down:#58c98b;--band:#27413d;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 "Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+main{max-width:1080px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:26px;margin:8px 0 2px;letter-spacing:.02em}
+.meta{margin:0;color:var(--mute);font-size:13px}
+.notice{margin:16px 0;padding:10px 14px;border:1px solid var(--accent);border-radius:6px;font-size:13px;background:var(--card)}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+.controls button,.controls select{font:inherit;font-size:14px;padding:6px 14px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:20px;cursor:pointer}
+.controls button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.controls select{margin-left:auto;border-radius:6px}
+button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.summary{font-size:14px;color:var(--mute);margin:4px 0 12px}
+.summary b{color:var(--ink)}
+.row{position:relative;background:var(--card);border:1px solid var(--line);border-radius:6px;margin-bottom:8px}
+.head{all:unset;box-sizing:border-box;display:grid;width:100%;cursor:pointer;padding:12px 14px 12px 42px;gap:8px 14px;grid-template-columns:1.4fr 1.2fr .8fr .9fr .8fr .8fr 1.6fr .9fr;align-items:center}
+.head:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.id b{display:block;font-size:16px}
+.id span,.ind small,.num small,.cap{font-size:12px;color:var(--mute)}
+.id span+span{margin-left:8px}
+.num small{display:block}
+.num{font-weight:600}
+.up{color:var(--up)}.down{color:var(--down)}
+.track{position:relative;height:10px;background:color-mix(in srgb,var(--ink) 10%,var(--card));border-radius:5px;margin:10px 0 6px}
+.span{position:absolute;top:0;bottom:0;background:linear-gradient(90deg,color-mix(in srgb,var(--down) 55%,var(--card)),color-mix(in srgb,var(--up) 55%,var(--card)));border-radius:5px}
+.tick{position:absolute;top:-5px;width:4px;height:20px;background:var(--ink);border-radius:2px;box-shadow:0 0 0 2px var(--card);transform:translateX(-50%)}
+.dot{position:absolute;top:-3px;width:16px;height:16px;border-radius:50%;background:var(--card);border:3px solid var(--ink);transform:translateX(-50%)}
+.cap{display:flex;justify-content:space-between}
+.detail{padding:4px 14px 16px;border-top:1px solid var(--line)}
+.detail h3{font-size:14px;margin:14px 0 6px}
+.detail p{margin:0;font-size:14px;max-width:70ch}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:right;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--mute);font-weight:500}
+.star{position:absolute;left:8px;top:10px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;line-height:1;color:var(--mute);background:none;border:0;padding:0;z-index:1}
+.star.on{color:#e0a100}
+.star:focus-visible{outline:2px solid var(--accent);border-radius:4px}
+.cbar{height:4px;margin-top:4px;background:color-mix(in srgb,var(--ink) 12%,var(--card));border-radius:2px}
+.cbar i{display:block;height:100%;background:var(--accent);border-radius:2px}
+.upd{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0 0}
+.upd button{font:inherit;font-size:14px;padding:6px 16px;border:1px solid var(--accent);background:var(--card);color:var(--accent);border-radius:6px;cursor:pointer}
+.upd button:disabled{opacity:.55;cursor:default}
+.upd button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#updmsg{font-size:13px;color:var(--mute)}
+.legend{margin-top:20px;font-size:12px;color:var(--mute)}
+.cols{display:grid;grid-template-columns:1.4fr 1.2fr .8fr .9fr .8fr .8fr 1.6fr .9fr;gap:8px 14px;align-items:center;padding:8px 14px 8px 42px;margin-bottom:8px;background:var(--card);border:1px solid var(--line);border-radius:6px}
+.cols button{all:unset;cursor:pointer;font-size:13px;font-weight:500;color:var(--mute);white-space:nowrap}
+.cols button:hover,.cols button.on{color:var(--accent)}
+.cols button.on{font-weight:700}
+.cols button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cols .sp{font-size:13px;color:var(--mute)}
+@media (max-width:760px){
+.head{grid-template-columns:1fr 1fr 1fr}
+.id{grid-column:1/-1}.ind{grid-column:1/-1}.range{grid-column:1/-1}
+.cols{display:flex;overflow-x:auto;gap:6px;padding:0 0 8px;background:none;border:0;border-radius:0}
+.cols .sp{display:none}
+.cols button{flex:none;padding:6px 12px;border:1px solid var(--line);border-radius:20px;background:var(--card)}
+.cols button.on{border-color:var(--accent)}
+}
+</style>
+</head>
+<body>
+<main>
+<h1>估值儀表板</h1>
+<p class="meta">資料日期 <span id="asof"></span></p>
+<div class="upd"><button type="button" id="updbtn">立即更新資料</button><span id="updmsg" role="status"></span></div>
+<div class="notice" id="notice" hidden>目前畫面上的股價與估值都是示範用的假數字，不是真實行情，不能拿來做投資判斷。接上每日更新程式後，這裡會換成真實資料。</div>
+<div class="controls">
+<button type="button" data-m="all" aria-pressed="true">全部</button>
+<button type="button" data-m="TW" aria-pressed="false">台灣</button>
+<button type="button" data-m="US" aria-pressed="false">美國</button>
+<button type="button" data-m="W" aria-pressed="false">★ 追蹤 <span id="wc"></span></button>
+</div>
+<div class="summary" id="summary"></div>
+<div class="cols" id="cols">
+<button type="button" data-k="tk">名稱代號<i></i></button>
+<button type="button" data-k="ind">產業與模型<i></i></button>
+<button type="button" data-k="price">現價<i></i></button>
+<button type="button" data-k="base">中性公允價<i></i></button>
+<button type="button" data-k="pot">潛在報酬<i></i></button>
+<button type="button" data-k="exp">期望報酬<i></i></button>
+<span class="sp">公允價範圍</span>
+<button type="button" data-k="conf">信賴度<i></i></button>
+</div>
+<div id="list"></div>
+<p class="legend">顏色採台灣習慣，紅色代表現價低於公允價（有上漲空間），綠色代表現價高於公允價。進度條的漸層區段是悲觀（綠）到樂觀（紅）的公允價範圍，粗直線是中性公允價，空心圓點是現價。點選任一檔可展開估值模型、情境與同業比較，點選上方欄位標題可排序，再點一次切換由大到小或由小到大。本頁數字由程式依公開資料與簡化假設計算，僅供參考，不構成投資建議。信賴度是依可用方法數、方法間一致程度、分析師覆蓋與同業樣本計算的內部分數，不是預測準確率。點左側的星號可標記追蹤，記錄存在這台電腦的瀏覽器裡。</p>
+</main>
+<script src="data.js"></script>
+<script>
+(function(){
+var D=window.DATA;if(!D){document.getElementById("list").textContent="找不到 data.js，請先在 C:\\invest 執行 python update.py 產生資料。";return}var mk="all",sk="pot",sd=-1,list=document.getElementById("list");
+document.getElementById("asof").textContent=D.asof;if(D.sample)document.getElementById("notice").hidden=false;
+function f(n){return n.toLocaleString("zh-TW",{maximumFractionDigits:2})}
+function pc(r){return(r>=0?"+":"")+(r*100).toFixed(1)+"%"}
+function cl(r){return r>=0?"up":"down"}
+function calc(s){var b=s.sc.filter(function(x){return x.n==="中性"})[0].v,ev=s.sc.reduce(function(a,x){return a+x.p*x.v},0);
+return{base:b,pot:b/s.price-1,ev:ev,exp:ev/s.price-1,lo:s.sc[0].v,hi:s.sc[s.sc.length-1].v,conf:s.conf?s.conf.score:0}}
+function cell(v){return v==null?"–":f(v)}
+function row(s){var c=calc(s),lo=Math.min(s.price,c.lo)*.92,hi=Math.max(s.price,c.hi)*1.08,P=function(v){return((v-lo)/(hi-lo)*100).toFixed(1)};
+var sc=s.sc.map(function(x){return"<tr><td>"+x.n+"</td><td>"+Math.round(x.p*100)+"%</td><td>"+s.cur+f(x.v)+"</td><td class=\""+cl(x.v/s.price-1)+"\">"+pc(x.v/s.price-1)+"</td></tr>"}).join("");
+var ms=(s.methods||[]).map(function(m){return"<tr><td>"+m.n+"</td><td>"+s.cur+f(m.v)+"</td><td>"+Math.round(m.w*100)+"%</td></tr>"}).join("");
+var pe=(s.peers||[]).map(function(p){return"<tr><td>"+p[0]+"</td><td>"+cell(p[1])+"</td><td>"+cell(p[2])+"</td><td>"+cell(p[3])+"</td></tr>"}).join("");
+var a=document.createElement("article");a.className="row";
+a.innerHTML="<button type=\"button\" class=\"star\">☆</button><button type=\"button\" class=\"head\" aria-expanded=\"false\">"+
+"<div class=\"id\"><b>"+s.name+"</b><span>"+s.tk+"</span><span>"+(s.mk==="TW"?"台灣":"美國")+"</span></div>"+
+"<div class=\"ind\">"+s.ind+"<br><small>"+s.model+"</small></div>"+
+"<div class=\"num\"><small>現價</small>"+s.cur+f(s.price)+"</div>"+
+"<div class=\"num\"><small>中性公允價</small>"+s.cur+f(c.base)+"</div>"+
+"<div class=\"num "+cl(c.pot)+"\"><small>潛在報酬</small>"+pc(c.pot)+"</div>"+
+"<div class=\"num "+cl(c.exp)+"\"><small>期望報酬</small>"+pc(c.exp)+"</div>"+
+"<div class=\"range\"><div class=\"track\"><div class=\"span\" style=\"left:"+P(c.lo)+"%;width:"+(P(c.hi)-P(c.lo)).toFixed(1)+"%\"></div><div class=\"tick\" style=\"left:"+P(c.base)+"%\"></div><div class=\"dot\" style=\"left:"+P(s.price)+"%\"></div></div><div class=\"cap\"><span>悲觀 "+f(c.lo)+"</span><span>樂觀 "+f(c.hi)+"</span></div></div>"+
+"<div class=\"num\"><small>信賴度</small>"+(s.conf?s.conf.score+"% "+s.conf.level+"<div class=\"cbar\"><i style=\"width:"+s.conf.score+"%\"></i></div>":"–")+"</div></button>"+
+"<div class=\"detail\" hidden><h3>採用的估值模型：「"+s.model+"」</h3><p>"+s.why+"</p>"+(s.note?"<p class=\"cap\">"+s.note+"</p>":"")+(s.conf?"<h3>信賴度 "+s.conf.score+"%（"+s.conf.level+"）</h3><p>"+s.conf.parts.join("、")+"。分數愈高，代表可用的估值方法愈多、方法之間愈一致、分析師覆蓋愈多。</p>":"")+"<h3>各方法估值（一年後）</h3><div class=\"scroll\"><table><tr><th>方法</th><th>估值</th><th>權重</th></tr>"+ms+"</table></div>"+
+"<h3>情境分析（期望值 "+s.cur+f(c.ev)+"）</h3><div class=\"scroll\"><table><tr><th>情境</th><th>機率</th><th>公允價</th><th>相對現價</th></tr>"+sc+"</table></div>"+
+"<h3>同業比較</h3><div class=\"scroll\"><table><tr><th>公司</th><th>預估本益比</th><th>股價淨值比</th><th>股價營收比</th></tr>"+pe+"</table></div></div>";
+var b=a.querySelector(".head"),d=a.querySelector(".detail");
+b.addEventListener("click",function(){var o=b.getAttribute("aria-expanded")==="true";b.setAttribute("aria-expanded",String(!o));d.hidden=o});
+star(a,s);return a}
+var W={};try{W=JSON.parse(localStorage.getItem("watch")||"{}")}catch(e){}
+function wk(s){return s.mk+":"+s.tk}
+function paint(b,s){var on=!!W[wk(s)];b.classList.toggle("on",on);b.textContent=on?"★":"☆";b.setAttribute("aria-pressed",String(on));b.setAttribute("aria-label","追蹤 "+s.name)}
+function count(){var k=Object.keys(W).length;document.getElementById("wc").textContent=k?"("+k+")":""}
+function star(a,s){var b=a.querySelector(".star");paint(b,s);b.addEventListener("click",function(){if(W[wk(s)])delete W[wk(s)];else W[wk(s)]=1;try{localStorage.setItem("watch",JSON.stringify(W))}catch(e){}if(mk==="W")render();else{paint(b,s);count()}})}
+function bad(s){var a=document.createElement("article");a.className="row";a.innerHTML="<button type=\"button\" class=\"star\">☆</button><div class=\"head\" style=\"cursor:default\"><div class=\"id\"><b>"+s.name+"</b><span>"+s.tk+"</span><span>"+(s.mk==="TW"?"台灣":"美國")+"</span></div><div class=\"ind\" style=\"grid-column:span 6\"><small>資料不足："+(s.note||"")+"</small></div></div>";star(a,s);return a}
+function render(){
+var A=D.stocks.filter(function(s){return mk==="all"||(mk==="W"?W[wk(s)]:s.mk===mk)}),L=A.filter(function(s){return s.ok}),X=A.filter(function(s){return !s.ok});
+L.sort(function(x,y){var a=calc(x),b=calc(y),r;if(sk==="tk")r=x.tk.localeCompare(y.tk,"zh-TW",{numeric:true});else if(sk==="ind")r=x.ind.localeCompare(y.ind,"zh-TW");else if(sk==="price")r=x.price-y.price;else r=a[sk]-b[sk];return sd*r});
+marks();
+list.innerHTML=A.length||mk!=="W"?"":"<p class=\"cap\">還沒有追蹤的股票，點每一檔左邊的星號就會加入。</p>";count();L.forEach(function(s){list.appendChild(row(s))});X.forEach(function(s){list.appendChild(bad(s))});
+var u=L.filter(function(s){return calc(s).pot>0}).length,av=L.length?L.reduce(function(a,s){return a+calc(s).exp},0)/L.length:0;
+document.getElementById("summary").innerHTML="共 <b>"+L.length+"</b> 檔"+(X.length?"（另有 "+X.length+" 檔資料不足）":"")+"，其中 <b>"+u+"</b> 檔現價低於中性公允價，平均期望報酬 <b class=\""+cl(av)+"\">"+pc(av)+"</b>"}
+document.querySelectorAll(".controls button").forEach(function(b){b.addEventListener("click",function(){
+mk=b.dataset.m;document.querySelectorAll(".controls button").forEach(function(x){x.setAttribute("aria-pressed",String(x===b))});render()})});
+function marks(){document.querySelectorAll("#cols button").forEach(function(b){var on=b.dataset.k===sk;b.classList.toggle("on",on);b.querySelector("i").textContent=on?(sd>0?" ▲":" ▼"):""})}
+document.querySelectorAll("#cols button").forEach(function(b){b.addEventListener("click",function(){var k=b.dataset.k;if(k===sk){sd=-sd}else{sk=k;sd=(k==="tk"||k==="ind")?1:-1}render()})});
+render();
+})();
+</script>
+<script>
+(function(){
+var b=document.getElementById("updbtn"),m=document.getElementById("updmsg"),box=b.parentNode,run=false,seen=false;
+if(location.protocol.indexOf("http")!==0){b.disabled=true;m.textContent="要使用更新按鈕，請改用 start.bat 開啟本頁";return}
+if(location.hostname!=="localhost"&&location.hostname!=="127.0.0.1"){box.style.display="none";return}
+function poll(){fetch("/api/status").then(function(r){return r.json()}).then(function(s){
+var was=run;run=s.running;b.disabled=s.running;
+if(s.running){m.textContent="更新中… "+(s.progress||"準備中");setTimeout(poll,2000)}
+else if(was){if(s.ok){m.textContent="更新完成，重新載入…";location.reload()}else m.textContent="更新失敗，請看黑色視窗的訊息"}
+else if(s.finished){m.textContent=(s.ok?"上次更新完成 ":"上次更新失敗 ")+s.finished}
+}).catch(function(){b.disabled=true;m.textContent="連不到更新服務，請確認 start.bat 的黑色視窗還開著"})}
+b.addEventListener("click",function(){b.disabled=true;m.textContent="啟動更新…";
+fetch("/api/update",{method:"POST"}).then(function(){run=true;poll()}).catch(function(){b.disabled=false;m.textContent="連不到更新服務"})});
+poll();
+})();
+</script>
+</body>
+</html>
