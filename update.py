@@ -25,7 +25,8 @@ TG = 0.025                     # 永續成長率
 PROBS = (0.25, 0.50, 0.25)     # 悲觀 / 中性 / 樂觀 的機率
 MIN_ANALYSTS = 3               # 分析師少於這個人數就不採用目標價
 # 折現率 = 無風險利率 + beta x 風險溢酬，再限制在合理範圍內
-RATES = {"TW": (0.016, 0.06, 0.075, 0.11), "US": (0.043, 0.05, 0.08, 0.11)}
+RATES = {"TW": (0.016, 0.06, 0.09, 0.12), "US": (0.043, 0.05, 0.08, 0.11)}
+CAP = 0.5                      # 單一估值方法與現價的最大差距（正負 50%），超過就限幅並加警示
 
 SECTOR_ZH = {
     "Technology": "科技", "Financial Services": "金融", "Healthcare": "醫療保健",
@@ -34,7 +35,7 @@ SECTOR_ZH = {
     "Basic Materials": "原物料", "Utilities": "公用事業", "Real Estate": "不動產",
 }
 NAMES = {"pe": "本益比法", "pb": "股價淨值比法", "dcf": "現金流折現",
-         "gdcf": "成長型現金流折現", "ddm": "股利折現", "target": "分析師目標價"}
+         "gdcf": "成長型現金流折現", "ddm": "股利折現", "target": "分析師目標價（中位數）"}
 # 分類 -> (模型名稱, 說明, 各方法權重)
 GROUPS = {
     "bank": ("股價淨值比與本益比",
@@ -213,6 +214,8 @@ def value_stock(row, info, pool):
     pe_med = median_of([n(i.get("forwardPE"), 5, 60) for _, (_, i) in pool])
     pb_med = median_of([n(i.get("priceToBook"), 0.3, 15) for _, (_, i) in pool])
     na, tm = n(info.get("numberOfAnalystOpinions")), n(info.get("targetMeanPrice"), 1e-4)
+    tmed = n(info.get("targetMedianPrice"), 1e-4)   # 中位數不受最高、最低兩端極端值影響
+    tgt = tmed or tm
     have_t = bool(na and na >= MIN_ANALYSTS)
 
     m = {}
@@ -226,8 +229,8 @@ def value_stock(row, info, pool):
             m["pb"] = bv * clamp(pb_med, 0.7 * own, 1.4 * own)
         elif roe is not None or row["group"] == "bank":
             # 銀行，或同業樣本不足時：用股東權益報酬率推算合理的股價淨值比
-            rc = clamp(roe if roe is not None else 0.10, 0.04, 0.25)
-            m["pb"] = bv * (1 + rc * 0.6) * clamp((rc - 0.03) / (r - 0.03), 0.6, 3.5)
+            rc = clamp(roe if roe is not None else 0.10, 0.04, 0.15)
+            m["pb"] = bv * (1 + rc * 0.6) * clamp((rc - TG) / (r - TG), 0.6, 2.5)
             if row["group"] != "bank":
                 thin = "同業樣本不足，股價淨值比法改用股東權益報酬率推算"
     if "dcf" in W and fcfps and g0 is not None:
@@ -237,14 +240,22 @@ def value_stock(row, info, pool):
     if "ddm" in W and rate:
         gg = clamp(g0 if g0 is not None else 0.02, 0, 0.04)
         m["ddm"] = rate * (1 + gg) / (r - gg) * up
-    if "target" in W and tm and have_t:
-        m["target"] = tm
+    if "target" in W and tgt and have_t:
+        m["target"] = tgt
 
     drop = [k for k, v in m.items() if not (0.2 * price <= v <= 5 * price)]
     for k in drop:
         del m[k]
-    note = "；".join(x for x in (thin if "pb" in m else "",
-                              "已排除數值異常的方法：" + "、".join(NAMES[k] for k in drop) if drop else "") if x)
+    capped = []
+    for k, v in list(m.items()):          # 單一方法與現價差距限制在正負 CAP 內
+        c = clamp(v, (1 - CAP) * price, (1 + CAP) * price)
+        if c != v:
+            m[k] = c
+            capped.append(k)
+    note = "；".join(x for x in (
+        thin if "pb" in m else "",
+        "已排除數值異常的方法：" + "、".join(NAMES[k] for k in drop) if drop else "",
+        "已限幅（原估值與現價差距超過 50%）：" + "、".join(NAMES[k] for k in capped) if capped else "") if x)
     if len(m) < 2:
         return dict(head, ok=False, ind=ind,
                     note="可用的估值方法不足兩種（" + "、".join(NAMES[k] for k in m) + "）" if m else "缺少估值所需的財務資料")
@@ -252,17 +263,26 @@ def value_stock(row, info, pool):
     tot = sum(W[k] for k in m)
     base = sum(W[k] * v for k, v in m.items()) / tot
     vals = list(m.values())
-    tlo, thi = n(info.get("targetLowPrice"), 1e-4), n(info.get("targetHighPrice"), 1e-4)
-    bear = clamp(min(vals + ([tlo] if tlo and have_t else [])), 0.6 * base, 0.92 * base)
-    bull = clamp(max(vals + ([thi] if thi and have_t else [])), 1.08 * base, 1.6 * base)
+    # 悲觀、樂觀只看各方法的高低，不直接採用分析師最高、最低目標價（兩端極端值）
+    bear = clamp(min(vals), 0.6 * base, 0.92 * base)
+    bull = clamp(max(vals), 1.08 * base, 1.6 * base)
 
     # 信賴度：可用方法數、方法間一致程度、分析師覆蓋、同業樣本（最高 100 分）
     spread = (max(vals) - min(vals)) / base
-    score = min(len(m), 4) * 10 + 30 * (1 - clamp(spread / 0.8, 0, 1)) - 5 * len(drop)
+    warn = ""
+    if capped:
+        warn = "有估值方法與現價差距超過 50%，已限制在正負 50% 內，實際差距可能更大，請特別謹慎看待。"
+    elif abs(base / price - 1) > 0.3:
+        warn = "估值與現價差距超過 30%，請檢查各方法的假設是否合理。"
+    score = (min(len(m), 4) * 10 + 30 * (1 - clamp(spread / 0.8, 0, 1)) - 5 * len(drop)
+             - 8 * len(capped) - (5 if warn else 0))
     parts = [f"可用方法 {len(m)} 種", f"方法間差距 {spread * 100:.0f}%"]
     if "target" in m:
         score += 20 if na >= 20 else 15 if na >= 10 else 8
         parts.append(f"分析師 {int(na)} 位")
+        if tm and tmed and abs(tm / tmed - 1) > 0.15:
+            score -= 5
+            parts.append("分析師目標價分布偏斜")
     if "pe" in m or ("pb" in m and row["group"] != "bank" and not thin):
         score += 10
         parts.append("有同業比較")
@@ -270,6 +290,8 @@ def value_stock(row, info, pool):
         parts.append("同業樣本不足")
     if drop:
         parts.append(f"排除 {len(drop)} 個異常方法")
+    if capped:
+        parts.append(f"限幅 {len(capped)} 個方法")
     score = int(round(clamp(score, 0, 100)))
     conf = {"score": score, "level": "高" if score >= 70 else "中" if score >= 45 else "低", "parts": parts}
 
@@ -284,7 +306,7 @@ def value_stock(row, info, pool):
             {"n": "中性", "p": PROBS[1], "v": round(base, 2)},
             {"n": "樂觀", "p": PROBS[2], "v": round(bull, 2)}],
         methods=[{"n": NAMES[k], "v": round(v, 2), "w": round(W[k] / tot, 3)} for k, v in m.items()],
-        peers=peers, conf=conf)
+        peers=peers, conf=conf, warn=warn)
 
 
 def build(rows, infos):
