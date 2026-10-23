@@ -58,6 +58,7 @@ th{color:var(--mute);font-weight:500}
 .upd button:disabled{opacity:.55;cursor:default}
 .upd button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #updmsg{font-size:13px;color:var(--mute)}
+.grp{position:sticky;left:0;margin:16px 0 8px;font-size:15px;font-weight:600;color:var(--accent)}
 .legend{margin-top:20px;font-size:12px;color:var(--mute)}
 .cols{display:grid;grid-template-columns:1.4fr .8fr .9fr .8fr .8fr 1.6fr .9fr 1.3fr;gap:8px 14px;align-items:center;padding:8px 14px;margin-bottom:8px;background:var(--card);border:1px solid var(--line);border-radius:6px}
 .cols button{all:unset;cursor:pointer;font-size:13px;font-weight:500;color:var(--mute);white-space:nowrap}
@@ -67,20 +68,33 @@ th{color:var(--mute);font-weight:500}
 .cols .sp{font-size:13px;color:var(--mute)}
 @media (max-width:760px){
 .tbl{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px}
-.grid{width:1120px}
+.grid{width:1250px}
 .head,.cols{display:flex;gap:14px;align-items:center}
 .head>*,.cols>*{flex:none}
-.head>:nth-child(1),.cols>:nth-child(1){width:170px}
-.head>:nth-child(2),.cols>:nth-child(2){width:100px}
-.head>:nth-child(3),.cols>:nth-child(3){width:110px}
-.head>:nth-child(4),.cols>:nth-child(4){width:90px}
-.head>:nth-child(5),.cols>:nth-child(5){width:90px}
-.head>:nth-child(6),.cols>:nth-child(6){width:170px}
-.head>:nth-child(7),.cols>:nth-child(7){width:100px}
-.head>:nth-child(8),.cols>:nth-child(8){width:170px}
+.head>:nth-child(1),.cols>:nth-child(1){width:185px}
+.head>:nth-child(2),.cols>:nth-child(2){width:115px}
+.head>:nth-child(3),.cols>:nth-child(3){width:125px}
+.head>:nth-child(4),.cols>:nth-child(4){width:105px}
+.head>:nth-child(5),.cols>:nth-child(5){width:105px}
+.head>:nth-child(6),.cols>:nth-child(6){width:185px}
+.head>:nth-child(7),.cols>:nth-child(7){width:115px}
+.head>:nth-child(8),.cols>:nth-child(8){width:185px}
 .head>.bn{width:700px}
 .head>.id,.cols>:first-child{position:sticky;left:0;z-index:2;background:var(--card);box-shadow:6px 0 6px -6px rgba(0,0,0,.35)}
 .detail{position:sticky;left:0;width:calc(100vw - 34px)}
+body{font-size:17px}
+h1{font-size:28px}
+.id b{font-size:18px}
+.id span,.ind small,.num small,.cap{font-size:14px}
+.meta,.summary{font-size:15px}
+.controls button{font-size:16px}
+.cols button,.cols .sp{font-size:15px}
+.detail p,.detail h3{font-size:16px}
+table{font-size:15px}
+.legend{font-size:14px}
+.upd button{font-size:16px}
+#updmsg{font-size:15px}
+.grp{font-size:16px}
 }
 </style>
 </head>
@@ -153,7 +167,7 @@ function render(){
 var A=D.stocks.filter(function(s){return mk==="all"||(mk==="W"?W[wk(s)]:s.mk===mk)}),L=A.filter(function(s){return s.ok}),X=A.filter(function(s){return !s.ok});
 L.sort(function(x,y){var a=calc(x),b=calc(y),r;if(sk==="tk")r=x.tk.localeCompare(y.tk,"zh-TW",{numeric:true});else if(sk==="ind")r=x.ind.localeCompare(y.ind,"zh-TW");else if(sk==="price")r=x.price-y.price;else r=a[sk]-b[sk];return sd*r});
 marks();
-list.innerHTML=A.length||mk!=="W"?"":"<p class=\"cap\">還沒有追蹤的股票，點每一檔左邊的星號就會加入。</p>";count();L.forEach(function(s){list.appendChild(row(s))});X.forEach(function(s){list.appendChild(bad(s))});
+list.innerHTML=A.length||mk!=="W"?"":"<p class=\"cap\">還沒有追蹤的股票，點每一檔左邊的星號就會加入。</p>";count();if(mk==="W"){["TW","US"].forEach(function(m){var a=L.filter(function(s){return s.mk===m}),b=X.filter(function(s){return s.mk===m});if(!a.length&&!b.length)return;var h=document.createElement("h2");h.className="grp";h.textContent=(m==="TW"?"台灣":"美國")+"（"+(a.length+b.length)+" 檔）";list.appendChild(h);a.forEach(function(s){list.appendChild(row(s))});b.forEach(function(s){list.appendChild(bad(s))})})}else{L.forEach(function(s){list.appendChild(row(s))});X.forEach(function(s){list.appendChild(bad(s))})}
 var u=L.filter(function(s){return calc(s).pot>0}).length,av=L.length?L.reduce(function(a,s){return a+calc(s).exp},0)/L.length:0;
 document.getElementById("summary").innerHTML="共 <b>"+L.length+"</b> 檔"+(X.length?"（另有 "+X.length+" 檔資料不足）":"")+"，其中 <b>"+u+"</b> 檔現價低於中性公允價，平均期望報酬 <b class=\""+cl(av)+"\">"+pc(av)+"</b>"}
 document.querySelectorAll(".controls button").forEach(function(b){b.addEventListener("click",function(){
