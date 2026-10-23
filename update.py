@@ -34,25 +34,25 @@ SECTOR_ZH = {
     "Communication Services": "通訊服務", "Industrials": "工業", "Energy": "能源",
     "Basic Materials": "原物料", "Utilities": "公用事業", "Real Estate": "不動產",
 }
-NAMES = {"pe": "本益比法", "pb": "股價淨值比法", "dcf": "現金流折現",
+NAMES = {"hpe": "自身歷史本益比法", "hpb": "自身歷史淨值比法", "ev": "EV/EBITDA 法", "pe": "同業本益比法", "pb": "股價淨值比法（同業或ROE）", "dcf": "現金流折現",
          "gdcf": "成長型現金流折現", "ddm": "股利折現", "target": "分析師目標價（中位數）"}
 # 分類 -> (模型名稱, 說明, 各方法權重)
 GROUPS = {
     "bank": ("股價淨值比與本益比",
              "金融股獲利常受一次性因素影響，淨值較穩定，所以以股價淨值比為主，再對照同業本益比與分析師目標價。",
-             {"pb": .5, "pe": .2, "target": .3}),
+             {"pb": .35, "hpb": .2, "pe": .15, "target": .3}),
     "mature": ("本益比與現金流折現",
                "獲利與現金流穩定的成熟公司，以同業本益比與自由現金流折現為主，並參考分析師目標價。",
-               {"pe": .35, "dcf": .35, "target": .3}),
+               {"pe": .2, "hpe": .1, "ev": .15, "dcf": .25, "target": .3}),
     "defensive": ("現金流折現與股利折現",
                   "需求穩定、股利持續的防禦型公司，以現金流折現與股利折現為主，輔以本益比與分析師目標價。",
-                  {"dcf": .3, "ddm": .2, "pe": .2, "target": .3}),
+                  {"dcf": .2, "ddm": .1, "pe": .15, "hpe": .1, "ev": .15, "target": .3}),
     "growth": ("成長型現金流折現",
                "營收與獲利仍在快速成長，單看目前本益比容易失真，所以以拉長期間的成長型現金流折現為主。",
-               {"gdcf": .4, "pe": .2, "target": .4}),
+               {"gdcf": .3, "pe": .1, "hpe": .1, "ev": .1, "target": .4}),
     "cyclical": ("股價淨值比與本益比（景氣循環）",
                  "獲利隨景氣大起大落，單一年度獲利不可靠，所以用同業股價淨值比與預估本益比，並提高分析師目標價的參考比重。",
-                 {"pb": .3, "pe": .2, "target": .5}),
+                 {"pb": .15, "hpb": .15, "pe": .1, "hpe": .1, "ev": .1, "target": .4}),
 }
 
 
@@ -134,12 +134,56 @@ def refresh_us(rows):
 
 
 # ---- 抓資料 -----------------------------------------------------------------
+def hist_multiples(tk):
+    """用年度財報與月線股價，推算這家公司過去幾年的本益比、股價淨值比中位數。失敗就回傳空 dict。"""
+    out = {}
+    try:
+        inc, bal = tk.income_stmt, tk.balance_sheet
+        px = tk.history(period="6y", interval="1mo")["Close"]
+        px.index = px.index.tz_localize(None)
+
+        def row(df, names):
+            for nm in names:
+                if nm in df.index:
+                    return df.loc[nm]
+            return None
+
+        def price_at(d):
+            return n(px.asof(d.tz_localize(None) if getattr(d, "tzinfo", None) else d), 1e-4)
+
+        eps = row(inc, ["Diluted EPS", "Basic EPS"])
+        eq = row(bal, ["Stockholders Equity", "Common Stock Equity"])
+        sh = row(bal, ["Ordinary Shares Number", "Share Issued"])
+        pes, pbs = [], []
+        if eps is not None:
+            for d in inc.columns:
+                e, p = n(eps.get(d), 1e-6), price_at(d)
+                if e and p and 3 <= p / e <= 80:
+                    pes.append(p / e)
+        if eq is not None and sh is not None:
+            for d in bal.columns:
+                e, s_, p = n(eq.get(d), 1), n(sh.get(d), 1), price_at(d)
+                if e and s_ and p and 0.2 <= p / (e / s_) <= 25:
+                    pbs.append(p / (e / s_))
+        if len(pes) >= 3:
+            out["pe"] = round(statistics.median(pes), 2)
+        if len(pbs) >= 3:
+            out["pb"] = round(statistics.median(pbs), 2)
+    except Exception:
+        pass
+    return out
+
+
 def fetch_info(sym):
     import yfinance as yf
     err = None
     for _ in range(3):
         try:
-            return yf.Ticker(sym).info or {}
+            tk = yf.Ticker(sym)
+            info = tk.info or {}
+            if has_price(info):
+                info["_hist"] = hist_multiples(tk)
+            return info
         except Exception as e:
             err = e
             time.sleep(2)
@@ -240,6 +284,20 @@ def value_stock(row, info, pool):
     if "ddm" in W and rate:
         gg = clamp(g0 if g0 is not None else 0.02, 0, 0.04)
         m["ddm"] = rate * (1 + gg) / (r - gg) * up
+    hist = info.get("_hist") or {}
+    hpe_m, hpb_m = n(hist.get("pe"), 3, 80), n(hist.get("pb"), 0.2, 25)
+    if "hpe" in W and feps and hpe_m:
+        m["hpe"] = feps * hpe_m
+    if "hpb" in W and bv and hpb_m:
+        m["hpb"] = bv * (1 + clamp(roe if roe is not None else 0.08, 0.0, 0.15) * 0.6) * hpb_m
+    ebitda, own_ev = n(info.get("ebitda"), 1), n(info.get("enterpriseToEbitda"), 2, 60)
+    ev_med = median_of([n(i.get("enterpriseToEbitda"), 2, 40) for _, (_, i) in pool])
+    if "ev" in W and ebitda and shares and ev_med:
+        mult = clamp(ev_med, 0.7 * own_ev, 1.4 * own_ev) if own_ev else clamp(ev_med, 4, 25)
+        fwd = ebitda * (1 + clamp(g0 if g0 is not None else 0.0, 0, 0.10))
+        eq_v = fwd * mult - (n(info.get("totalDebt")) or 0.0) + (n(info.get("totalCash")) or 0.0)
+        if eq_v > 0:
+            m["ev"] = eq_v / shares
     if "target" in W and tgt and have_t:
         m["target"] = tgt
 
@@ -286,6 +344,9 @@ def value_stock(row, info, pool):
     if "pe" in m or ("pb" in m and row["group"] != "bank" and not thin):
         score += 10
         parts.append("有同業比較")
+    if "hpe" in m or "hpb" in m:
+        score += 5
+        parts.append("有自身歷史比較")
     if thin and "pb" in m:
         parts.append("同業樣本不足")
     if drop:

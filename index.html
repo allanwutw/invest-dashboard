@@ -24,7 +24,7 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outlin
 .summary{font-size:14px;color:var(--mute);margin:4px 0 12px}
 .summary b{color:var(--ink)}
 .row{position:relative;background:var(--card);border:1px solid var(--line);border-radius:6px;margin-bottom:8px}
-.head{all:unset;box-sizing:border-box;display:grid;width:100%;cursor:pointer;padding:12px 14px;gap:8px 14px;grid-template-columns:1.4fr 1.2fr .8fr .9fr .8fr .8fr 1.6fr .9fr;align-items:center}
+.head{all:unset;box-sizing:border-box;display:grid;width:100%;cursor:pointer;padding:12px 14px;gap:8px 14px;grid-template-columns:1.4fr .8fr .9fr .8fr .8fr 1.6fr .9fr 1.3fr;align-items:center}
 .head:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .id b{display:block;font-size:16px}
 .id span,.ind small,.num small,.cap{font-size:12px;color:var(--mute)}
@@ -59,7 +59,7 @@ th{color:var(--mute);font-weight:500}
 .upd button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #updmsg{font-size:13px;color:var(--mute)}
 .legend{margin-top:20px;font-size:12px;color:var(--mute)}
-.cols{display:grid;grid-template-columns:1.4fr 1.2fr .8fr .9fr .8fr .8fr 1.6fr .9fr;gap:8px 14px;align-items:center;padding:8px 14px;margin-bottom:8px;background:var(--card);border:1px solid var(--line);border-radius:6px}
+.cols{display:grid;grid-template-columns:1.4fr .8fr .9fr .8fr .8fr 1.6fr .9fr 1.3fr;gap:8px 14px;align-items:center;padding:8px 14px;margin-bottom:8px;background:var(--card);border:1px solid var(--line);border-radius:6px}
 .cols button{all:unset;cursor:pointer;font-size:13px;font-weight:500;color:var(--mute);white-space:nowrap}
 .cols button:hover,.cols button.on{color:var(--accent)}
 .cols button.on{font-weight:700}
@@ -71,13 +71,14 @@ th{color:var(--mute);font-weight:500}
 .head,.cols{display:flex;gap:14px;align-items:center}
 .head>*,.cols>*{flex:none}
 .head>:nth-child(1),.cols>:nth-child(1){width:170px}
-.head>:nth-child(2),.cols>:nth-child(2){width:150px}
-.head>:nth-child(3),.cols>:nth-child(3){width:100px}
-.head>:nth-child(4),.cols>:nth-child(4){width:110px}
+.head>:nth-child(2),.cols>:nth-child(2){width:100px}
+.head>:nth-child(3),.cols>:nth-child(3){width:110px}
+.head>:nth-child(4),.cols>:nth-child(4){width:90px}
 .head>:nth-child(5),.cols>:nth-child(5){width:90px}
-.head>:nth-child(6),.cols>:nth-child(6){width:90px}
-.head>:nth-child(7),.cols>:nth-child(7){width:170px}
-.head>:nth-child(8),.cols>:nth-child(8){width:100px}
+.head>:nth-child(6),.cols>:nth-child(6){width:170px}
+.head>:nth-child(7),.cols>:nth-child(7){width:100px}
+.head>:nth-child(8),.cols>:nth-child(8){width:170px}
+.head>.bn{width:700px}
 .head>.id,.cols>:first-child{position:sticky;left:0;z-index:2;background:var(--card);box-shadow:6px 0 6px -6px rgba(0,0,0,.35)}
 .detail{position:sticky;left:0;width:calc(100vw - 34px)}
 }
@@ -99,13 +100,13 @@ th{color:var(--mute);font-weight:500}
 <div class="tbl"><div class="grid">
 <div class="cols" id="cols">
 <button type="button" data-k="tk">名稱代號<i></i></button>
-<button type="button" data-k="ind">產業與模型<i></i></button>
 <button type="button" data-k="price">現價<i></i></button>
 <button type="button" data-k="base">中性公允價<i></i></button>
 <button type="button" data-k="pot">潛在報酬<i></i></button>
 <button type="button" data-k="exp">期望報酬<i></i></button>
 <span class="sp">公允價範圍</span>
 <button type="button" data-k="conf">信賴度<i></i></button>
+<button type="button" data-k="ind">產業與模型<i></i></button>
 </div>
 <div id="list"></div>
 </div></div>
@@ -129,13 +130,13 @@ var pe=(s.peers||[]).map(function(p){return"<tr><td>"+p[0]+"</td><td>"+cell(p[1]
 var a=document.createElement("article");a.className="row";
 a.innerHTML="<button type=\"button\" class=\"head\" aria-expanded=\"false\">"+
 "<div class=\"id\"><span class=\"star\" role=\"button\" tabindex=\"0\">☆</span><div class=\"nm\"><b>"+s.name+"</b><span>"+s.tk+"</span><span>"+(s.mk==="TW"?"台灣":"美國")+"</span></div></div>"+
-"<div class=\"ind\">"+s.ind+"<br><small>"+s.model+"</small></div>"+
 "<div class=\"num\"><small>現價</small>"+s.cur+f(s.price)+"</div>"+
 "<div class=\"num\"><small>中性公允價</small>"+s.cur+f(c.base)+"</div>"+
 "<div class=\"num "+cl(c.pot)+"\"><small>潛在報酬</small>"+pc(c.pot)+(s.warn?" <span class=\"warn\" title=\"估值與現價差距大，請謹慎看待\">⚠</span>":"")+"</div>"+
 "<div class=\"num "+cl(c.exp)+"\"><small>期望報酬</small>"+pc(c.exp)+"</div>"+
 "<div class=\"range\"><div class=\"track\"><div class=\"span\" style=\"left:"+P(c.lo)+"%;width:"+(P(c.hi)-P(c.lo)).toFixed(1)+"%\"></div><div class=\"tick\" style=\"left:"+P(c.base)+"%\"></div><div class=\"dot\" style=\"left:"+P(s.price)+"%\"></div></div><div class=\"cap\"><span>悲觀 "+f(c.lo)+"</span><span>樂觀 "+f(c.hi)+"</span></div></div>"+
-"<div class=\"num\"><small>信賴度</small>"+(s.conf?s.conf.score+"% "+s.conf.level+"<div class=\"cbar\"><i style=\"width:"+s.conf.score+"%\"></i></div>":"–")+"</div></button>"+
+"<div class=\"num\"><small>信賴度</small>"+(s.conf?s.conf.score+"% "+s.conf.level+"<div class=\"cbar\"><i style=\"width:"+s.conf.score+"%\"></i></div>":"–")+"</div>"+
+"<div class=\"ind\">"+s.ind+"<br><small>"+s.model+"</small></div></button>"+
 "<div class=\"detail\" hidden><h3>採用的估值模型：「"+s.model+"」</h3><p>"+s.why+"</p>"+(s.warn?"<p>⚠ "+s.warn+"</p>":"")+(s.note?"<p class=\"cap\">"+s.note+"</p>":"")+(s.conf?"<h3>信賴度 "+s.conf.score+"%（"+s.conf.level+"）</h3><p>"+s.conf.parts.join("、")+"。分數愈高，代表可用的估值方法愈多、方法之間愈一致、分析師覆蓋愈多。</p>":"")+"<h3>各方法估值（一年後）</h3><div class=\"scroll\"><table><tr><th>方法</th><th>估值</th><th>權重</th></tr>"+ms+"</table></div>"+
 "<h3>情境分析（期望值 "+s.cur+f(c.ev)+"）</h3><div class=\"scroll\"><table><tr><th>情境</th><th>機率</th><th>公允價</th><th>相對現價</th></tr>"+sc+"</table></div>"+
 "<h3>同業比較</h3><div class=\"scroll\"><table><tr><th>公司</th><th>預估本益比</th><th>股價淨值比</th><th>股價營收比</th></tr>"+pe+"</table></div></div>";
@@ -147,7 +148,7 @@ function wk(s){return s.mk+":"+s.tk}
 function paint(b,s){var on=!!W[wk(s)];b.classList.toggle("on",on);b.textContent=on?"★":"☆";b.setAttribute("aria-pressed",String(on));b.setAttribute("aria-label","追蹤 "+s.name)}
 function count(){var k=Object.keys(W).length;document.getElementById("wc").textContent=k?"("+k+")":""}
 function star(a,s){var b=a.querySelector(".star");paint(b,s);function t(e){e.stopPropagation();e.preventDefault();if(W[wk(s)])delete W[wk(s)];else W[wk(s)]=1;try{localStorage.setItem("watch",JSON.stringify(W))}catch(x){}if(mk==="W")render();else{paint(b,s);count()}}b.addEventListener("click",t);b.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" ")t(e)})}
-function bad(s){var a=document.createElement("article");a.className="row";a.innerHTML="<div class=\"head\" style=\"cursor:default\"><div class=\"id\"><span class=\"star\" role=\"button\" tabindex=\"0\">☆</span><div class=\"nm\"><b>"+s.name+"</b><span>"+s.tk+"</span><span>"+(s.mk==="TW"?"台灣":"美國")+"</span></div></div><div class=\"ind\" style=\"grid-column:span 6\"><small>資料不足："+(s.note||"")+"</small></div></div>";star(a,s);return a}
+function bad(s){var a=document.createElement("article");a.className="row";a.innerHTML="<div class=\"head\" style=\"cursor:default\"><div class=\"id\"><span class=\"star\" role=\"button\" tabindex=\"0\">☆</span><div class=\"nm\"><b>"+s.name+"</b><span>"+s.tk+"</span><span>"+(s.mk==="TW"?"台灣":"美國")+"</span></div></div><div class=\"ind bn\" style=\"grid-column:span 6\"><small>資料不足："+(s.note||"")+"</small></div></div>";star(a,s);return a}
 function render(){
 var A=D.stocks.filter(function(s){return mk==="all"||(mk==="W"?W[wk(s)]:s.mk===mk)}),L=A.filter(function(s){return s.ok}),X=A.filter(function(s){return !s.ok});
 L.sort(function(x,y){var a=calc(x),b=calc(y),r;if(sk==="tk")r=x.tk.localeCompare(y.tk,"zh-TW",{numeric:true});else if(sk==="ind")r=x.ind.localeCompare(y.ind,"zh-TW");else if(sk==="price")r=x.price-y.price;else r=a[sk]-b[sk];return sd*r});
