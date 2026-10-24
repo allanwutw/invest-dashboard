@@ -17,7 +17,7 @@ h1{font-size:26px;margin:8px 0 2px;letter-spacing:.02em}
 .meta{margin:0;color:var(--mute);font-size:13px}
 .notice{margin:16px 0;padding:10px 14px;border:1px solid var(--accent);border-radius:6px;font-size:13px;background:var(--card)}
 .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
-.controls button,.controls select{font:inherit;font-size:14px;padding:6px 14px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:20px;cursor:pointer}
+.controls button,.controls select{font:inherit;font-size:16px;padding:8px 18px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:20px;cursor:pointer}
 .controls button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg)}
 .controls select{margin-left:auto;border-radius:6px}
 button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -26,7 +26,8 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outlin
 .row{position:relative;background:var(--card);border:1px solid var(--line);border-radius:6px;margin-bottom:8px}
 .head{all:unset;box-sizing:border-box;display:grid;width:100%;cursor:pointer;padding:12px 14px;gap:8px 14px;grid-template-columns:1.4fr .8fr .9fr .8fr .8fr 1.6fr .9fr 1.3fr;align-items:center}
 .head:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-.id b{display:block;font-size:16px}
+.id b{display:block;font-size:18px}
+.nm span{font-size:13px}
 .id span,.ind small,.num small,.cap{font-size:12px;color:var(--mute)}
 .id{display:flex;align-items:flex-start}
 .nm span+span{margin-left:8px}
@@ -59,6 +60,8 @@ th{color:var(--mute);font-weight:500}
 .upd button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #updmsg{font-size:13px;color:var(--mute)}
 .grp{position:sticky;left:0;margin:16px 0 8px;font-size:15px;font-weight:600;color:var(--accent)}
+.fv{background:color-mix(in srgb,var(--accent) 14%,var(--card));color:var(--accent);border-radius:6px;padding:6px 8px;margin:-6px 0}
+.fv small{color:var(--accent);opacity:.85}
 .legend{margin-top:20px;font-size:12px;color:var(--mute)}
 .cols{display:grid;grid-template-columns:1.4fr .8fr .9fr .8fr .8fr 1.6fr .9fr 1.3fr;gap:8px 14px;align-items:center;padding:8px 14px;margin-bottom:8px;background:var(--card);border:1px solid var(--line);border-radius:6px}
 .cols button{all:unset;cursor:pointer;font-size:13px;font-weight:500;color:var(--mute);white-space:nowrap}
@@ -84,10 +87,11 @@ th{color:var(--mute);font-weight:500}
 .detail{position:sticky;left:0;width:calc(100vw - 34px)}
 body{font-size:17px}
 h1{font-size:28px}
-.id b{font-size:18px}
+.id b{font-size:20px}
+.nm span{font-size:15px}
 .id span,.ind small,.num small,.cap{font-size:14px}
 .meta,.summary{font-size:15px}
-.controls button{font-size:16px}
+.controls button{font-size:18px;padding:9px 20px}
 .cols button,.cols .sp{font-size:15px}
 .detail p,.detail h3{font-size:16px}
 table{font-size:15px}
@@ -145,7 +149,7 @@ var a=document.createElement("article");a.className="row";
 a.innerHTML="<button type=\"button\" class=\"head\" aria-expanded=\"false\">"+
 "<div class=\"id\"><span class=\"star\" role=\"button\" tabindex=\"0\">☆</span><div class=\"nm\"><b>"+s.name+"</b><span>"+s.tk+"</span><span>"+(s.mk==="TW"?"台灣":"美國")+"</span></div></div>"+
 "<div class=\"num\"><small>現價</small>"+s.cur+f(s.price)+"</div>"+
-"<div class=\"num\"><small>中性公允價</small>"+s.cur+f(c.base)+"</div>"+
+"<div class=\"num fv\"><small>中性公允價</small>"+s.cur+f(c.base)+"</div>"+
 "<div class=\"num "+cl(c.pot)+"\"><small>潛在報酬</small>"+pc(c.pot)+(s.warn?" <span class=\"warn\" title=\"估值與現價差距大，請謹慎看待\">⚠</span>":"")+"</div>"+
 "<div class=\"num "+cl(c.exp)+"\"><small>期望報酬</small>"+pc(c.exp)+"</div>"+
 "<div class=\"range\"><div class=\"track\"><div class=\"span\" style=\"left:"+P(c.lo)+"%;width:"+(P(c.hi)-P(c.lo)).toFixed(1)+"%\"></div><div class=\"tick\" style=\"left:"+P(c.base)+"%\"></div><div class=\"dot\" style=\"left:"+P(s.price)+"%\"></div></div><div class=\"cap\"><span>悲觀 "+f(c.lo)+"</span><span>樂觀 "+f(c.hi)+"</span></div></div>"+
