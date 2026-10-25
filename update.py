@@ -18,6 +18,13 @@ CSV_PATH = os.path.join(HERE, "stocks.csv")
 OUT_PATH = os.path.join(HERE, "data.js")
 CACHE_PATH = os.path.join(HERE, "cache.json")
 TZ = timezone(timedelta(hours=8))   # 台灣時間
+HOLD_PATH = os.path.join(HERE, "etf_holdings.csv")
+ETFS = [
+    {"tk": "0050", "name": "元大台灣50", "mk": "TW", "yf": "0050.TW", "cur": "NT$", "ind": "台灣前50大"},
+    {"tk": "VOO", "name": "Vanguard 標普500", "mk": "US", "yf": "VOO", "cur": "US$", "ind": "美國大型股"},
+    {"tk": "QQQ", "name": "Invesco 那斯達克100", "mk": "US", "yf": "QQQ", "cur": "US$", "ind": "美國科技成長"},
+    {"tk": "SOXX", "name": "iShares 半導體", "mk": "US", "yf": "SOXX", "cur": "US$", "ind": "美國半導體"},
+]
 US_URL = "https://americancompanies.com/reports/largest-american-companies/"
 
 # ---- 可調整的假設 ----------------------------------------------------------
@@ -375,10 +382,73 @@ def build(rows, infos):
     return [value_stock(r, univ[r["symbol"]][1], peers_of(r["symbol"], univ)) for r in rows]
 
 
+# ---- ETF：成分股加權估值 ------------------------------------------------------
+def load_holdings():
+    if not os.path.exists(HOLD_PATH):
+        return []
+    with open(HOLD_PATH, encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def fetch_etf_price(sym):
+    import yfinance as yf
+    for _ in range(3):
+        try:
+            info = yf.Ticker(sym).info or {}
+            return (n(info.get("regularMarketPrice"), 1e-4) or n(info.get("currentPrice"), 1e-4)
+                    or n(info.get("previousClose"), 1e-4))
+        except Exception:
+            time.sleep(2)
+    return None
+
+
+def build_etfs(rows, stocks, holds, prices):
+    """把 ETF 的成分股估值，依持股權重加權平均。只計算有估值的成分股，涵蓋率 = 它們占 ETF 的比重。"""
+    by_sym = {r["symbol"]: s for r, s in zip(rows, stocks)}
+    out = []
+    for e in ETFS:
+        head = {"tk": e["tk"], "name": e["name"], "mk": e["mk"], "cur": e["cur"], "ind": e["ind"], "etf": True}
+        hs = [h for h in holds if h["etf"] == e["tk"]]
+        used = [(by_sym[h["symbol"]], n(h["weight"], 0) or 0.0) for h in hs
+                if h["symbol"] in by_sym and by_sym[h["symbol"]]["ok"]]
+        tot = sum(w for _, w in used)
+        price = prices.get(e["tk"])
+        if not price:
+            out.append(dict(head, ok=False, note="抓不到 ETF 價格"))
+            continue
+        if tot < 20:
+            out.append(dict(head, ok=False, note=f"有估值的成分股只占 {tot:.0f}%，涵蓋率過低"))
+            continue
+
+        def wavg(f):
+            return sum(w * f(s) for s, w in used) / tot
+
+        rets = [wavg(lambda s, i=i: s["sc"][i]["v"] / s["price"] - 1) for i in range(3)]
+        cov = min(tot / 100.0, 1.0)
+        avg_conf = wavg(lambda s: s["conf"]["score"])
+        score = avg_conf * clamp(cov / 0.8, 0.4, 1.0)
+        warn = "涵蓋率不足 60%，沒有估值的持股不在計算內，結果僅供參考。" if cov < 0.6 else ""
+        score = int(round(clamp(score - (5 if warn else 0), 0, 100)))
+        asof = max((h["asof"] for h in hs), default="")
+        notes = sorted({h["note"] for h in hs if h.get("note")})
+        top = sorted(used, key=lambda x: -x[1])[:10]
+        out.append(dict(
+            head, ok=True, model="成分股加權估值", price=round(price, 2), warn=warn, note="；".join(notes),
+            why="把 ETF 持有的成分股，依持股權重加權平均各自的估值結果。只計算我們有估值的成分股，涵蓋率代表這些成分股占 ETF 的比重。",
+            sc=[{"n": nm, "p": PROBS[i], "v": round(price * (1 + rets[i]), 2)} for i, nm in enumerate(("悲觀", "中性", "樂觀"))],
+            methods=[], peers=[],
+            holds=[[s["name"], round(w, 2), round(s["sc"][1]["v"] / s["price"] - 1, 4)] for s, w in top],
+            conf={"score": score, "level": "高" if score >= 70 else "中" if score >= 45 else "低",
+                  "parts": [f"涵蓋率 {cov * 100:.0f}%", f"成分股平均信賴度 {avg_conf:.0f}%", f"持股權重日期 {asof}"]}))
+    return out
+
+
 def main():
     rows = refresh_us(load_rows())
     save_rows(rows)
     stocks = build(rows, fetch_all(rows, "--cache" in sys.argv))
+    prices = {e["tk"]: fetch_etf_price(e["yf"]) for e in ETFS}
+    stocks = stocks + build_etfs(rows, stocks, load_holdings(), prices)
     data = {"asof": datetime.now(TZ).strftime("%Y-%m-%d %H:%M"), "sample": False, "stocks": stocks}
     with open(OUT_PATH, "w", encoding="utf-8") as f:
         f.write("window.DATA=" + json.dumps(data, ensure_ascii=False) + ";\n")

@@ -26,8 +26,7 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outlin
 .row{position:relative;background:var(--card);border:1px solid var(--line);border-radius:6px;margin-bottom:8px}
 .head{all:unset;box-sizing:border-box;display:grid;width:100%;cursor:pointer;padding:12px 14px;gap:8px 14px;grid-template-columns:1.4fr .8fr .9fr .8fr .8fr 1.6fr .9fr 1.3fr;align-items:center}
 .head:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-.id b{display:block;font-size:18px}
-.nm span{font-size:13px}
+.id b{display:block;font-size:16px}
 .id span,.ind small,.num small,.cap{font-size:12px;color:var(--mute)}
 .id{display:flex;align-items:flex-start}
 .nm span+span{margin-left:8px}
@@ -93,8 +92,7 @@ th{color:var(--mute);font-weight:500}
 .detail{position:sticky;left:0;width:calc(100vw - 34px)}
 body{font-size:17px}
 h1{font-size:28px}
-.id b{font-size:20px}
-.nm span{font-size:15px}
+.id b{font-size:18px}
 .id span,.ind small,.num small,.cap{font-size:14px}
 .meta,.summary{font-size:15px}
 .controls button{font-size:18px;padding:9px 20px}
@@ -119,6 +117,7 @@ table{font-size:15px}
 <button type="button" data-m="all" aria-pressed="true">全部</button>
 <button type="button" data-m="TW" aria-pressed="false">台灣</button>
 <button type="button" data-m="US" aria-pressed="false">美國</button>
+<button type="button" data-m="E" aria-pressed="false">ETF</button>
 <button type="button" data-m="W" aria-pressed="false">★ 追蹤 <span id="wc"></span></button>
 <input type="search" id="q" placeholder="輸入代號或名稱搜尋" aria-label="搜尋股票" autocomplete="off">
 </div>
@@ -136,7 +135,7 @@ table{font-size:15px}
 </div>
 <div id="list"></div>
 </div></div>
-<p class="legend">顏色採台灣習慣，紅色代表現價低於公允價（有上漲空間），綠色代表現價高於公允價。進度條的漸層區段是悲觀（綠）到樂觀（紅）的公允價範圍，粗直線是中性公允價，空心圓點是現價。點選任一檔可展開估值模型、情境與同業比較，點選上方欄位標題可排序，再點一次切換由大到小或由小到大。本頁數字由程式依公開資料與簡化假設計算，僅供參考，不構成投資建議。⚠ 代表估值與現價差距偏大，請特別謹慎。分析師目標價取中位數，不受最高、最低兩端極端值影響。手機上可左右滑動查看全部欄位，名稱欄會固定在左邊。信賴度是依可用方法數、方法間一致程度、分析師覆蓋與同業樣本計算的內部分數，不是預測準確率。點左側的星號可標記追蹤，記錄存在這台電腦的瀏覽器裡。</p>
+<p class="legend">顏色採台灣習慣，紅色代表現價低於公允價（有上漲空間），綠色代表現價高於公允價。進度條的漸層區段是悲觀（綠）到樂觀（紅）的公允價範圍，粗直線是中性公允價，空心圓點是現價。點選任一檔可展開估值模型、情境與同業比較，點選上方欄位標題可排序，再點一次切換由大到小或由小到大。本頁數字由程式依公開資料與簡化假設計算，僅供參考，不構成投資建議。⚠ 代表估值與現價差距偏大，請特別謹慎。分析師目標價取中位數，不受最高、最低兩端極端值影響。ETF 的數字是把成分股的估值依持股權重加權平均，涵蓋率代表有估值的成分股占 ETF 的比重。手機上可左右滑動查看全部欄位，名稱欄會固定在左邊。信賴度是依可用方法數、方法間一致程度、分析師覆蓋與同業樣本計算的內部分數，不是預測準確率。點左側的星號可標記追蹤，記錄存在這台電腦的瀏覽器裡。</p>
 </main>
 <script src="data.js"></script>
 <script>
@@ -152,6 +151,7 @@ function cell(v){return v==null?"–":f(v)}
 function row(s){var c=calc(s),lo=Math.min(s.price,c.lo)*.92,hi=Math.max(s.price,c.hi)*1.08,P=function(v){return((v-lo)/(hi-lo)*100).toFixed(1)};
 var sc=s.sc.map(function(x){return"<tr><td>"+x.n+"</td><td>"+Math.round(x.p*100)+"%</td><td>"+s.cur+f(x.v)+"</td><td class=\""+cl(x.v/s.price-1)+"\">"+pc(x.v/s.price-1)+"</td></tr>"}).join("");
 var ms=(s.methods||[]).map(function(m){return"<tr><td>"+m.n+"</td><td>"+s.cur+f(m.v)+"</td><td>"+Math.round(m.w*100)+"%</td></tr>"}).join("");
+var hd=(s.holds||[]).map(function(h){return"<tr><td>"+h[0]+"</td><td>"+h[1]+"%</td><td class=\""+cl(h[2])+"\">"+pc(h[2])+"</td></tr>"}).join("");
 var pe=(s.peers||[]).map(function(p){return"<tr><td>"+p[0]+"</td><td>"+cell(p[1])+"</td><td>"+cell(p[2])+"</td><td>"+cell(p[3])+"</td></tr>"}).join("");
 var a=document.createElement("article");a.className="row";
 a.innerHTML="<button type=\"button\" class=\"head\" aria-expanded=\"false\">"+
@@ -163,9 +163,9 @@ a.innerHTML="<button type=\"button\" class=\"head\" aria-expanded=\"false\">"+
 "<div class=\"range\"><div class=\"track\"><div class=\"span\" style=\"left:"+P(c.lo)+"%;width:"+(P(c.hi)-P(c.lo)).toFixed(1)+"%\"></div><div class=\"tick\" style=\"left:"+P(c.base)+"%\"></div><div class=\"dot\" style=\"left:"+P(s.price)+"%\"></div></div><div class=\"cap\"><span>悲觀 "+f(c.lo)+"</span><span>樂觀 "+f(c.hi)+"</span></div></div>"+
 "<div class=\"num\"><small>信賴度</small>"+(s.conf?s.conf.score+"% "+s.conf.level+"<div class=\"cbar\"><i style=\"width:"+s.conf.score+"%\"></i></div>":"–")+"</div>"+
 "<div class=\"ind\">"+s.ind+"<br><small>"+s.model+"</small></div></button>"+
-"<div class=\"detail\" hidden><h3>採用的估值模型：「"+s.model+"」</h3><p>"+s.why+"</p>"+(s.warn?"<p>⚠ "+s.warn+"</p>":"")+(s.note?"<p class=\"cap\">"+s.note+"</p>":"")+(s.conf?"<h3>信賴度 "+s.conf.score+"%（"+s.conf.level+"）</h3><p>"+s.conf.parts.join("、")+"。分數愈高，代表可用的估值方法愈多、方法之間愈一致、分析師覆蓋愈多。</p>":"")+"<h3>各方法估值（一年後）</h3><div class=\"scroll\"><table><tr><th>方法</th><th>估值</th><th>權重</th></tr>"+ms+"</table></div>"+
+"<div class=\"detail\" hidden><h3>採用的估值模型：「"+s.model+"」</h3><p>"+s.why+"</p>"+(s.warn?"<p>⚠ "+s.warn+"</p>":"")+(s.note?"<p class=\"cap\">"+s.note+"</p>":"")+(s.conf?"<h3>信賴度 "+s.conf.score+"%（"+s.conf.level+"）</h3><p>"+s.conf.parts.join("、")+"。分數愈高，代表可用的估值方法愈多、方法之間愈一致、分析師覆蓋愈多。</p>":"")+(ms?"<h3>各方法估值（一年後）</h3><div class=\"scroll\"><table><tr><th>方法</th><th>估值</th><th>權重</th></tr>"+ms+"</table></div>":"")+(hd?"<h3>主要成分股（權重與各自的潛在報酬）</h3><div class=\"scroll\"><table><tr><th>成分股</th><th>權重</th><th>潛在報酬</th></tr>"+hd+"</table></div>":"")+
 "<h3>情境分析（期望值 "+s.cur+f(c.ev)+"）</h3><div class=\"scroll\"><table><tr><th>情境</th><th>機率</th><th>公允價</th><th>相對現價</th></tr>"+sc+"</table></div>"+
-"<h3>同業比較</h3><div class=\"scroll\"><table><tr><th>公司</th><th>預估本益比</th><th>股價淨值比</th><th>股價營收比</th></tr>"+pe+"</table></div></div>";
+(pe?"<h3>同業比較</h3><div class=\"scroll\"><table><tr><th>公司</th><th>預估本益比</th><th>股價淨值比</th><th>股價營收比</th></tr>"+pe+"</table></div>":"")+"</div>";
 var b=a.querySelector(".head"),d=a.querySelector(".detail");
 b.addEventListener("click",function(){var o=b.getAttribute("aria-expanded")==="true";b.setAttribute("aria-expanded",String(!o));d.hidden=o});
 star(a,s);return a}
@@ -176,7 +176,7 @@ function count(){var k=Object.keys(W).length;document.getElementById("wc").textC
 function star(a,s){var b=a.querySelector(".star");paint(b,s);function t(e){e.stopPropagation();e.preventDefault();if(W[wk(s)])delete W[wk(s)];else W[wk(s)]=1;try{localStorage.setItem("watch",JSON.stringify(W))}catch(x){}if(mk==="W")render();else{paint(b,s);count()}}b.addEventListener("click",t);b.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" ")t(e)})}
 function bad(s){var a=document.createElement("article");a.className="row";a.innerHTML="<div class=\"head\" style=\"cursor:default\"><div class=\"id\"><span class=\"star\" role=\"button\" tabindex=\"0\">☆</span><div class=\"nm\"><b>"+s.name+"</b><span>"+s.tk+"</span><span>"+(s.mk==="TW"?"台灣":"美國")+"</span></div></div><div class=\"ind bn\" style=\"grid-column:span 6\"><small>資料不足："+(s.note||"")+"</small></div></div>";star(a,s);return a}
 function render(){
-var qr=(document.getElementById("q").value||"").trim().replace(/[<>&"]/g,""),q=qr.toLowerCase(),A=D.stocks.filter(function(s){return q?(s.tk+" "+s.name).toLowerCase().indexOf(q)>-1:(mk==="all"||(mk==="W"?W[wk(s)]:s.mk===mk))}),L=A.filter(function(s){return s.ok}),X=A.filter(function(s){return !s.ok});
+var qr=(document.getElementById("q").value||"").trim().replace(/[<>&"]/g,""),q=qr.toLowerCase(),A=D.stocks.filter(function(s){return q?(s.tk+" "+s.name).toLowerCase().indexOf(q)>-1:(mk==="E"?!!s.etf:(mk==="W"?!!W[wk(s)]:(!s.etf&&(mk==="all"||s.mk===mk))))}),L=A.filter(function(s){return s.ok}),X=A.filter(function(s){return !s.ok});
 L.sort(function(x,y){var a=calc(x),b=calc(y),r;if(sk==="tk")r=x.tk.localeCompare(y.tk,"zh-TW",{numeric:true});else if(sk==="ind")r=x.ind.localeCompare(y.ind,"zh-TW");else if(sk==="price")r=x.price-y.price;else r=a[sk]-b[sk];return sd*r});
 marks();
 list.innerHTML=A.length?"":(q?"<p class=\"cap\">找不到符合「"+qr+"」的股票，它可能不在目前這一百檔名單內。</p>":(mk==="W"?"<p class=\"cap\">還沒有追蹤的股票，點每一檔左邊的星號就會加入。</p>":""));count();if(mk==="W"&&!q){["TW","US"].forEach(function(m){var a=L.filter(function(s){return s.mk===m}),b=X.filter(function(s){return s.mk===m});if(!a.length&&!b.length)return;var h=document.createElement("h2");h.className="grp";h.textContent=(m==="TW"?"台灣":"美國")+"（"+(a.length+b.length)+" 檔）";list.appendChild(h);a.forEach(function(s){list.appendChild(row(s))});b.forEach(function(s){list.appendChild(bad(s))})})}else{L.forEach(function(s){list.appendChild(row(s))});X.forEach(function(s){list.appendChild(bad(s))})}
