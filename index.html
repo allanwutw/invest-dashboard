@@ -66,6 +66,8 @@ th{color:var(--mute);font-weight:500}
 .controls button[data-m="US"]{background:color-mix(in srgb,#d9483b 22%,var(--card));border-color:color-mix(in srgb,#d9483b 55%,var(--line))}
 .controls button[data-m="TW"][aria-pressed="true"]{background:color-mix(in srgb,#2e9e5b 60%,var(--card));border-color:#2e9e5b;color:var(--ink);font-weight:600}
 .controls button[data-m="US"][aria-pressed="true"]{background:color-mix(in srgb,#d9483b 60%,var(--card));border-color:#d9483b;color:var(--ink);font-weight:600}
+.controls input{font:inherit;font-size:16px;padding:8px 16px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:20px;flex:1 1 190px;max-width:300px;min-width:0}
+.controls input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .legend{margin-top:20px;font-size:12px;color:var(--mute)}
 .cols{display:grid;grid-template-columns:1.4fr .8fr .9fr .8fr .8fr 1.6fr .9fr 1.3fr;gap:8px 14px;align-items:center;padding:8px 14px;margin-bottom:8px;background:var(--card);border:1px solid var(--line);border-radius:6px}
 .cols button{all:unset;cursor:pointer;font-size:15px;font-weight:500;color:var(--mute);white-space:nowrap}
@@ -96,6 +98,7 @@ h1{font-size:28px}
 .id span,.ind small,.num small,.cap{font-size:14px}
 .meta,.summary{font-size:15px}
 .controls button{font-size:18px;padding:9px 20px}
+.controls input{font-size:18px;padding:9px 18px}
 .cols button,.cols .sp{font-size:17px}
 .detail p,.detail h3{font-size:16px}
 table{font-size:15px}
@@ -117,6 +120,7 @@ table{font-size:15px}
 <button type="button" data-m="TW" aria-pressed="false">台灣</button>
 <button type="button" data-m="US" aria-pressed="false">美國</button>
 <button type="button" data-m="W" aria-pressed="false">★ 追蹤 <span id="wc"></span></button>
+<input type="search" id="q" placeholder="輸入代號或名稱搜尋" aria-label="搜尋股票" autocomplete="off">
 </div>
 <div class="summary" id="summary"></div>
 <div class="tbl"><div class="grid">
@@ -172,16 +176,17 @@ function count(){var k=Object.keys(W).length;document.getElementById("wc").textC
 function star(a,s){var b=a.querySelector(".star");paint(b,s);function t(e){e.stopPropagation();e.preventDefault();if(W[wk(s)])delete W[wk(s)];else W[wk(s)]=1;try{localStorage.setItem("watch",JSON.stringify(W))}catch(x){}if(mk==="W")render();else{paint(b,s);count()}}b.addEventListener("click",t);b.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" ")t(e)})}
 function bad(s){var a=document.createElement("article");a.className="row";a.innerHTML="<div class=\"head\" style=\"cursor:default\"><div class=\"id\"><span class=\"star\" role=\"button\" tabindex=\"0\">☆</span><div class=\"nm\"><b>"+s.name+"</b><span>"+s.tk+"</span><span>"+(s.mk==="TW"?"台灣":"美國")+"</span></div></div><div class=\"ind bn\" style=\"grid-column:span 6\"><small>資料不足："+(s.note||"")+"</small></div></div>";star(a,s);return a}
 function render(){
-var A=D.stocks.filter(function(s){return mk==="all"||(mk==="W"?W[wk(s)]:s.mk===mk)}),L=A.filter(function(s){return s.ok}),X=A.filter(function(s){return !s.ok});
+var qr=(document.getElementById("q").value||"").trim().replace(/[<>&"]/g,""),q=qr.toLowerCase(),A=D.stocks.filter(function(s){return q?(s.tk+" "+s.name).toLowerCase().indexOf(q)>-1:(mk==="all"||(mk==="W"?W[wk(s)]:s.mk===mk))}),L=A.filter(function(s){return s.ok}),X=A.filter(function(s){return !s.ok});
 L.sort(function(x,y){var a=calc(x),b=calc(y),r;if(sk==="tk")r=x.tk.localeCompare(y.tk,"zh-TW",{numeric:true});else if(sk==="ind")r=x.ind.localeCompare(y.ind,"zh-TW");else if(sk==="price")r=x.price-y.price;else r=a[sk]-b[sk];return sd*r});
 marks();
-list.innerHTML=A.length||mk!=="W"?"":"<p class=\"cap\">還沒有追蹤的股票，點每一檔左邊的星號就會加入。</p>";count();if(mk==="W"){["TW","US"].forEach(function(m){var a=L.filter(function(s){return s.mk===m}),b=X.filter(function(s){return s.mk===m});if(!a.length&&!b.length)return;var h=document.createElement("h2");h.className="grp";h.textContent=(m==="TW"?"台灣":"美國")+"（"+(a.length+b.length)+" 檔）";list.appendChild(h);a.forEach(function(s){list.appendChild(row(s))});b.forEach(function(s){list.appendChild(bad(s))})})}else{L.forEach(function(s){list.appendChild(row(s))});X.forEach(function(s){list.appendChild(bad(s))})}
+list.innerHTML=A.length?"":(q?"<p class=\"cap\">找不到符合「"+qr+"」的股票，它可能不在目前這一百檔名單內。</p>":(mk==="W"?"<p class=\"cap\">還沒有追蹤的股票，點每一檔左邊的星號就會加入。</p>":""));count();if(mk==="W"&&!q){["TW","US"].forEach(function(m){var a=L.filter(function(s){return s.mk===m}),b=X.filter(function(s){return s.mk===m});if(!a.length&&!b.length)return;var h=document.createElement("h2");h.className="grp";h.textContent=(m==="TW"?"台灣":"美國")+"（"+(a.length+b.length)+" 檔）";list.appendChild(h);a.forEach(function(s){list.appendChild(row(s))});b.forEach(function(s){list.appendChild(bad(s))})})}else{L.forEach(function(s){list.appendChild(row(s))});X.forEach(function(s){list.appendChild(bad(s))})}
 var u=L.filter(function(s){return calc(s).pot>0}).length,av=L.length?L.reduce(function(a,s){return a+calc(s).exp},0)/L.length:0;
-document.getElementById("summary").innerHTML="共 <b>"+L.length+"</b> 檔"+(X.length?"（另有 "+X.length+" 檔資料不足）":"")+"，其中 <b>"+u+"</b> 檔現價低於中性公允價，平均期望報酬 <b class=\""+cl(av)+"\">"+pc(av)+"</b>"}
+document.getElementById("summary").innerHTML=(q?"搜尋「"+qr+"」，全部分頁一起找，":"")+"共 <b>"+L.length+"</b> 檔"+(X.length?"（另有 "+X.length+" 檔資料不足）":"")+"，其中 <b>"+u+"</b> 檔現價低於中性公允價，平均期望報酬 <b class=\""+cl(av)+"\">"+pc(av)+"</b>"}
 document.querySelectorAll(".controls button").forEach(function(b){b.addEventListener("click",function(){
 mk=b.dataset.m;document.querySelectorAll(".controls button").forEach(function(x){x.setAttribute("aria-pressed",String(x===b))});render()})});
 function marks(){document.querySelectorAll("#cols button").forEach(function(b){var on=b.dataset.k===sk;b.classList.toggle("on",on);b.querySelector("i").textContent=on?(sd>0?" ▲":" ▼"):""})}
 document.querySelectorAll("#cols button").forEach(function(b){b.addEventListener("click",function(){var k=b.dataset.k;if(k===sk){sd=-sd}else{sk=k;sd=(k==="tk"||k==="ind")?1:-1}render()})});
+document.getElementById("q").addEventListener("input",render);
 render();
 })();
 </script>
