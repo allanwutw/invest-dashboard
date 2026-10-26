@@ -21,11 +21,11 @@ TZ = timezone(timedelta(hours=8))   # 台灣時間
 HOLD_PATH = os.path.join(HERE, "etf_holdings.csv")
 ETFS = [
     {"tk": "0050", "name": "元大台灣50", "mk": "TW", "yf": "0050.TW", "cur": "NT$", "ind": "台灣前50大"},
+    {"tk": "00830", "name": "國泰費城半導體", "mk": "TW", "yf": "00830.TW", "cur": "NT$", "ind": "美國半導體（費半指數）"},
+    {"tk": "009815", "name": "大華美國Mag7+", "mk": "TW", "yf": "009815.TW", "cur": "NT$", "ind": "美國大型科技（Mag 7+）"},
     {"tk": "VOO", "name": "Vanguard 標普500", "mk": "US", "yf": "VOO", "cur": "US$", "ind": "美國大型股"},
     {"tk": "QQQ", "name": "Invesco 那斯達克100", "mk": "US", "yf": "QQQ", "cur": "US$", "ind": "美國科技成長"},
     {"tk": "SOXX", "name": "iShares 半導體", "mk": "US", "yf": "SOXX", "cur": "US$", "ind": "美國半導體"},
-    {"tk": "00830", "name": "國泰費城半導體", "mk": "TW", "yf": "00830.TW", "cur": "NT$", "ind": "美國半導體（費半指數）"},
-    {"tk": "009815", "name": "大華美國Mag7+", "mk": "TW", "yf": "009815.TW", "cur": "NT$", "ind": "美國大型科技（Mag 7+）"},
 ]
 US_URL = "https://americancompanies.com/reports/largest-american-companies/"
 
@@ -393,14 +393,29 @@ def load_holdings():
 
 
 def fetch_etf_price(sym):
+    """取得 ETF 市價：依序試 info、fast_info、近一個月收盤；台股再試上櫃代號。"""
     import yfinance as yf
-    for _ in range(3):
-        try:
-            info = yf.Ticker(sym).info or {}
-            return (n(info.get("regularMarketPrice"), 1e-4) or n(info.get("currentPrice"), 1e-4)
-                    or n(info.get("previousClose"), 1e-4))
-        except Exception:
-            time.sleep(2)
+    cands = [sym] + ([sym[:-3] + ".TWO"] if sym.endswith(".TW") else [])
+    for c in cands:
+        for _ in range(2):
+            try:
+                tk = yf.Ticker(c)
+                info = tk.info or {}
+                p = (n(info.get("regularMarketPrice"), 1e-4) or n(info.get("currentPrice"), 1e-4)
+                     or n(info.get("previousClose"), 1e-4))
+                if not p:
+                    try:
+                        p = n(tk.fast_info["last_price"], 1e-4)
+                    except Exception:
+                        p = None
+                if not p:
+                    h = tk.history(period="1mo")["Close"].dropna()
+                    p = n(h.iloc[-1], 1e-4) if len(h) else None
+                if p:
+                    return p
+                break
+            except Exception:
+                time.sleep(2)
     return None
 
 
@@ -408,16 +423,17 @@ def build_etfs(rows, stocks, holds, prices):
     """把 ETF 的成分股估值，依持股權重加權平均。只計算有估值的成分股，涵蓋率 = 它們占 ETF 的比重。"""
     by_sym = {r["symbol"]: s for r, s in zip(rows, stocks)}
     out = []
-    for e in ETFS:
-        head = {"tk": e["tk"], "name": e["name"], "mk": e["mk"], "cur": e["cur"], "ind": e["ind"], "etf": True}
+    for order, e in enumerate(ETFS):
+        head = {"ord": order, "tk": e["tk"], "name": e["name"], "mk": e["mk"], "cur": e["cur"], "ind": e["ind"], "etf": True}
         hs = [h for h in holds if h["etf"] == e["tk"]]
         used = [(by_sym[h["symbol"]], n(h["weight"], 0) or 0.0) for h in hs
                 if h["symbol"] in by_sym and by_sym[h["symbol"]]["ok"]]
         tot = sum(w for _, w in used)
         price = prices.get(e["tk"])
-        if not price:
-            out.append(dict(head, ok=False, note="抓不到 ETF 價格"))
-            continue
+        no_px = not price
+        if no_px:                       # 抓不到市價時仍顯示百分比結果，現價以 100 為基準
+            price = 100.0
+            head["cur"] = ""
         if tot < 20:
             out.append(dict(head, ok=False, note=f"有估值的成分股只占 {tot:.0f}%，涵蓋率過低"))
             continue
@@ -433,6 +449,8 @@ def build_etfs(rows, stocks, holds, prices):
         score = int(round(clamp(score - (5 if warn else 0), 0, 100)))
         asof = max((h["asof"] for h in hs), default="")
         notes = sorted({h["note"] for h in hs if h.get("note")})
+        if no_px:
+            notes.append("抓不到市價，現價與公允價以 100 為基準，只有百分比有意義")
         top = sorted(used, key=lambda x: -x[1])[:10]
         out.append(dict(
             head, ok=True, model="成分股加權估值", price=round(price, 2), warn=warn, note="；".join(notes),
