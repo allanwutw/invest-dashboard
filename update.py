@@ -112,13 +112,13 @@ def save_rows(rows):
 
 
 def refresh_us(rows):
-    """自動更新美國前 50 大名單；失敗就沿用現有名單。"""
+    """自動更新美國前 100 大名單；失敗就沿用現有名單。"""
     try:
         import io
         import pandas as pd
         from curl_cffi import requests
         html = requests.get(US_URL, impersonate="chrome", timeout=30).text
-        t = pd.read_html(io.StringIO(html))[0].head(50)
+        t = pd.read_html(io.StringIO(html))[0].head(100)
         old = {r["symbol"]: r for r in rows if r["market"] == "US"}
         new = []
         for _, x in t.iterrows():
@@ -127,8 +127,8 @@ def refresh_us(rows):
             new.append({"market": "US", "symbol": sym,
                         "name": o["name"] if o else str(x["Company"]),
                         "group": o["group"] if o else "mature"})
-        if len(new) != 50:
-            raise ValueError("表格列數不是 50")
+        if len(new) != 100:
+            raise ValueError("表格列數不是 100")
         added = [r["symbol"] for r in new if r["symbol"] not in old]
         dropped = [s for s in old if s not in {r["symbol"] for r in new}]
         if added or dropped:
