@@ -18,6 +18,7 @@ CSV_PATH = os.path.join(HERE, "stocks.csv")
 OUT_PATH = os.path.join(HERE, "data.js")
 CACHE_PATH = os.path.join(HERE, "cache.json")
 TZ = timezone(timedelta(hours=8))   # 台灣時間
+HIST_DIR = os.path.join(HERE, "history")
 HOLD_PATH = os.path.join(HERE, "etf_holdings.csv")
 ETFS = [
     {"tk": "0050", "name": "元大台灣50", "mk": "TW", "yf": "0050.TW", "cur": "NT$", "ind": "台灣前50大"},
@@ -270,6 +271,9 @@ def value_stock(row, info, pool):
     tmed = n(info.get("targetMedianPrice"), 1e-4)   # 中位數不受最高、最低兩端極端值影響
     tgt = tmed or tm
     have_t = bool(na and na >= MIN_ANALYSTS)
+    tgt_factor = clamp((na or 0) / 10, 0.3, 1.0)   # 分析師不到 10 位，目標價權重按人數打折（最低 30%）
+    W = dict(W)
+    W["target"] = W.get("target", 0) * tgt_factor
 
     m = {}
     thin = ""
@@ -347,6 +351,8 @@ def value_stock(row, info, pool):
     if "target" in m:
         score += 20 if na >= 20 else 15 if na >= 10 else 8
         parts.append(f"分析師 {int(na)} 位")
+        if tgt_factor < 1:
+            parts.append(f"目標價權重依人數調降為 {tgt_factor * 100:.0f}%")
         if tm and tmed and abs(tm / tmed - 1) > 0.15:
             score -= 5
             parts.append("分析師目標價分布偏斜")
@@ -371,7 +377,7 @@ def value_stock(row, info, pool):
 
     peers = [[v[0]["name"]] + mult(v[1]) for _, v in pool[:3]] + [[row["name"]] + mult(info)]
     return dict(
-        head, ok=True, ind=ind, model=label, why=why, price=round(price, 2), note=note,
+        head, ok=True, grp=row["group"], ind=ind, model=label, why=why, price=round(price, 2), note=note,
         sc=[{"n": "悲觀", "p": PROBS[0], "v": round(bear, 2)},
             {"n": "中性", "p": PROBS[1], "v": round(base, 2)},
             {"n": "樂觀", "p": PROBS[2], "v": round(bull, 2)}],
@@ -463,12 +469,28 @@ def build_etfs(rows, stocks, holds, prices):
     return out
 
 
+def save_snapshot(stocks, day):
+    """把今天每一檔的估值結果存成一個檔案（history/snapshot_日期.csv），之後回頭驗證用。"""
+    os.makedirs(HIST_DIR, exist_ok=True)
+    path = os.path.join(HIST_DIR, f"snapshot_{day}.csv")
+    with open(path, "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["date", "key", "name", "group", "etf", "price", "bear", "fair", "bull", "conf"])
+        for s in stocks:
+            if not s.get("ok") or s.get("cur") == "":   # 資料不足、或 ETF 抓不到市價者不存
+                continue
+            w.writerow([day, f'{s["mk"]}:{s["tk"]}', s["name"], s.get("grp", "ETF"), 1 if s.get("etf") else 0,
+                        s["price"], s["sc"][0]["v"], s["sc"][1]["v"], s["sc"][2]["v"], s["conf"]["score"]])
+    return path
+
+
 def main():
     rows = refresh_us(load_rows())
     save_rows(rows)
     stocks = build(rows, fetch_all(rows, "--cache" in sys.argv))
     prices = {e["tk"]: fetch_etf_price(e["yf"]) for e in ETFS}
     stocks = stocks + build_etfs(rows, stocks, load_holdings(), prices)
+    save_snapshot(stocks, datetime.now(TZ).strftime("%Y-%m-%d"))
     data = {"asof": datetime.now(TZ).strftime("%Y-%m-%d %H:%M"), "sample": False, "stocks": stocks}
     with open(OUT_PATH, "w", encoding="utf-8") as f:
         f.write("window.DATA=" + json.dumps(data, ensure_ascii=False) + ";\n")

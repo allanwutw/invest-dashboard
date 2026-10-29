@@ -67,6 +67,7 @@ th{color:var(--mute);font-weight:500}
 .controls button[data-m="US"][aria-pressed="true"]{background:color-mix(in srgb,#d9483b 60%,var(--card));border-color:#d9483b;color:var(--ink);font-weight:600}
 .controls input{font:inherit;font-size:16px;padding:8px 16px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:20px;flex:1 1 190px;max-width:300px;min-width:0}
 .controls input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.legend a{color:var(--accent)}
 .legend{margin-top:20px;font-size:12px;color:var(--mute)}
 .cols{display:grid;grid-template-columns:1.4fr .8fr .9fr .8fr .8fr 1.6fr .9fr 1.3fr;gap:8px 14px;align-items:center;padding:8px 14px;margin-bottom:8px;background:var(--card);border:1px solid var(--line);border-radius:6px}
 .cols button{all:unset;cursor:pointer;font-size:15px;font-weight:500;color:var(--mute);white-space:nowrap}
@@ -135,7 +136,7 @@ table{font-size:15px}
 </div>
 <div id="list"></div>
 </div></div>
-<p class="legend">顏色採台灣習慣，紅色代表現價低於公允價（有上漲空間），綠色代表現價高於公允價。進度條的漸層區段是悲觀（綠）到樂觀（紅）的公允價範圍，粗直線是中性公允價，空心圓點是現價。點選任一檔可展開估值模型、情境與同業比較，點選上方欄位標題可排序，再點一次切換由大到小或由小到大。本頁數字由程式依公開資料與簡化假設計算，僅供參考，不構成投資建議。⚠ 代表估值與現價差距偏大，請特別謹慎。分析師目標價取中位數，不受最高、最低兩端極端值影響。ETF 的數字是把成分股的估值依持股權重加權平均，涵蓋率代表有估值的成分股占 ETF 的比重。手機上可左右滑動查看全部欄位，名稱欄會固定在左邊。信賴度是依可用方法數、方法間一致程度、分析師覆蓋與同業樣本計算的內部分數，不是預測準確率。點左側的星號可標記追蹤，記錄存在這個瀏覽器裡；按「★ 追蹤」可以只看追蹤的股票，再搭配全部、台灣、美國、ETF 分頁。</p>
+<p class="legend">顏色採台灣習慣，紅色代表現價低於公允價（有上漲空間），綠色代表現價高於公允價。進度條的漸層區段是悲觀（綠）到樂觀（紅）的公允價範圍，粗直線是中性公允價，空心圓點是現價。點選任一檔可展開估值模型、情境與同業比較，點選上方欄位標題可排序，再點一次切換由大到小或由小到大。本頁數字由程式依公開資料與簡化假設計算，僅供參考，不構成投資建議。每天的估值結果都會存檔，累積幾個月後，可到<a href="backtest.html">驗證紀錄</a>看「當時的預測」和「之後實際漲跌」的對照。⚠ 代表估值與現價差距偏大，請特別謹慎。分析師目標價取中位數，不受最高、最低兩端極端值影響。ETF 的數字是把成分股的估值依持股權重加權平均，涵蓋率代表有估值的成分股占 ETF 的比重。手機上可左右滑動查看全部欄位，名稱欄會固定在左邊。信賴度是依可用方法數、方法間一致程度、分析師覆蓋與同業樣本計算的內部分數，不是預測準確率。點左側的星號可標記追蹤，記錄存在這個瀏覽器裡；按「★ 追蹤」可以只看追蹤的股票，再搭配全部、台灣、美國、ETF 分頁。</p>
 </main>
 <script src="data.js"></script>
 <script>
