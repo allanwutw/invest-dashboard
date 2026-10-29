@@ -30,12 +30,14 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@users.noreply.github.com"
-          git add stocks.csv
+          git add stocks.csv history
           git diff --cached --quiet || (git commit -m "update stock list" && git push)
+      - name: Backtest report
+        run: python backtest.py  
       - name: Prepare site
         run: |
           mkdir site
-          cp index.html data.js site/
+          cp index.html data.js backtest.html site/
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site
