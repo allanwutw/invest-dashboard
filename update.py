@@ -24,8 +24,8 @@ ETFS = [
     {"tk": "0050", "name": "元大台灣50", "mk": "TW", "yf": "0050.TW", "cur": "NT$", "ind": "台灣前50大"},
     {"tk": "00830", "name": "國泰費城半導體", "mk": "TW", "yf": "00830.TW", "cur": "NT$", "ind": "美國半導體（費半指數）"},
     {"tk": "009815", "name": "大華美國Mag7+", "mk": "TW", "yf": "009815.TW", "cur": "NT$", "ind": "美國大型科技（Mag 7+）"},
-    {"tk": "VOO", "name": "Vanguard 標普500", "mk": "US", "yf": "VOO", "cur": "US$", "ind": "美國大型股"},
-    {"tk": "QQQ", "name": "Invesco 那斯達克100", "mk": "US", "yf": "QQQ", "cur": "US$", "ind": "美國科技成長"},
+    {"tk": "SPYM", "name": "SPDR 標普500", "mk": "US", "yf": "SPYM", "cur": "US$", "ind": "美國大型股"},
+    {"tk": "QQQM", "name": "Invesco 那斯達克100", "mk": "US", "yf": "QQQM", "cur": "US$", "ind": "美國科技成長"},
     {"tk": "SOXX", "name": "iShares 半導體", "mk": "US", "yf": "SOXX", "cur": "US$", "ind": "美國半導體"},
 ]
 US_URL = "https://americancompanies.com/reports/largest-american-companies/"
