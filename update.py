@@ -31,6 +31,7 @@ ETFS = [
 US_URL = "https://americancompanies.com/reports/largest-american-companies/"
 
 # ---- 可調整的假設 ----------------------------------------------------------
+MODEL_VER = "v3"                # 估值模型版本；改了方法或權重就往上加
 TG = 0.025                     # 永續成長率
 PROBS = (0.25, 0.50, 0.25)     # 悲觀 / 中性 / 樂觀 的機率
 MIN_ANALYSTS = 3               # 分析師少於這個人數就不採用目標價
@@ -44,7 +45,7 @@ SECTOR_ZH = {
     "Communication Services": "通訊服務", "Industrials": "工業", "Energy": "能源",
     "Basic Materials": "原物料", "Utilities": "公用事業", "Real Estate": "不動產",
 }
-NAMES = {"hpe": "自身歷史本益比法", "hpb": "自身歷史淨值比法", "ev": "EV/EBITDA 法", "pe": "同業本益比法", "pb": "股價淨值比法（同業或ROE）", "dcf": "現金流折現",
+NAMES = {"dcfx": "現金流折現（EBITDA 退出倍數）", "ps": "價格/營收倍數法", "evs": "EV/營收倍數法", "ddm2": "多階段股利折現", "hpe": "自身歷史本益比法", "hpb": "自身歷史淨值比法", "ev": "EV/EBITDA 法", "pe": "同業本益比法", "pb": "股價淨值比法（同業或ROE）", "dcf": "現金流折現",
          "gdcf": "成長型現金流折現", "ddm": "股利折現", "target": "分析師目標價（中位數）"}
 # 分類 -> (模型名稱, 說明, 各方法權重)
 GROUPS = {
@@ -53,13 +54,13 @@ GROUPS = {
              {"pb": .35, "hpb": .2, "pe": .15, "target": .3}),
     "mature": ("本益比與現金流折現",
                "獲利與現金流穩定的成熟公司，以同業本益比與自由現金流折現為主，並參考分析師目標價。",
-               {"pe": .2, "hpe": .1, "ev": .15, "dcf": .25, "target": .3}),
+               {"pe": .2, "hpe": .1, "ev": .15, "dcf": .2, "dcfx": .1, "target": .25}),
     "defensive": ("現金流折現與股利折現",
                   "需求穩定、股利持續的防禦型公司，以現金流折現與股利折現為主，輔以本益比與分析師目標價。",
-                  {"dcf": .2, "ddm": .1, "pe": .15, "hpe": .1, "ev": .15, "target": .3}),
+                  {"dcf": .2, "dcfx": .1, "ddm": .05, "ddm2": .1, "pe": .1, "hpe": .1, "ev": .1, "target": .25}),
     "growth": ("成長型現金流折現",
                "營收與獲利仍在快速成長，單看目前本益比容易失真，所以以拉長期間的成長型現金流折現為主。",
-               {"gdcf": .3, "pe": .1, "hpe": .1, "ev": .1, "target": .4}),
+               {"gdcf": .25, "dcfx": .1, "ps": .1, "evs": .1, "pe": .1, "hpe": .05, "ev": .05, "target": .25}),
     "cyclical": ("股價淨值比與本益比（景氣循環）",
                  "獲利隨景氣大起大落，單一年度獲利不可靠，所以用同業股價淨值比與預估本益比，並提高分析師目標價的參考比重。",
                  {"pb": .15, "hpb": .15, "pe": .1, "hpe": .1, "ev": .1, "target": .4}),
@@ -311,6 +312,38 @@ def value_stock(row, info, pool):
         eq_v = fwd * mult - (n(info.get("totalDebt")) or 0.0) + (n(info.get("totalCash")) or 0.0)
         if eq_v > 0:
             m["ev"] = eq_v / shares
+    debt, cash = n(info.get("totalDebt")) or 0.0, n(info.get("totalCash")) or 0.0
+    rev = n(info.get("totalRevenue"), 1)
+    revg_c = clamp(n(info.get("revenueGrowth")) or 0.0, 0.0, 0.30)
+    if "ps" in W and rev and shares:
+        own_ps = n(info.get("priceToSalesTrailing12Months"), 0.05, 100)
+        ps_med = median_of([n(i.get("priceToSalesTrailing12Months"), 0.2, 60) for _, (_, i) in pool])
+        if ps_med:
+            mult = clamp(ps_med, 0.7 * own_ps, 1.4 * own_ps) if own_ps else ps_med
+            m["ps"] = rev * (1 + revg_c) / shares * mult
+    if "evs" in W and rev and shares:
+        own_evs = n(info.get("enterpriseToRevenue"), 0.05, 100)
+        evs_med = median_of([n(i.get("enterpriseToRevenue"), 0.2, 60) for _, (_, i) in pool])
+        if evs_med:
+            mult = clamp(evs_med, 0.7 * own_evs, 1.4 * own_evs) if own_evs else evs_med
+            eq_v = rev * (1 + revg_c) * mult - debt + cash
+            if eq_v > 0:
+                m["evs"] = eq_v / shares
+    if "dcfx" in W and fcfps and ebitda and shares and g0 is not None:
+        gx = clamp(g0, 0, 0.12)
+        mult_x = clamp(ev_med, 0.7 * own_ev, 1.4 * own_ev) if own_ev and ev_med else (own_ev or ev_med)
+        if mult_x:
+            pv, f, e = 0.0, fcfps, ebitda
+            for t in range(1, 6):          # 前 5 年的自由現金流折現，加上第 5 年用退出倍數算的期末價值
+                gt = gx + (TG - gx) * (t - 1) / 5
+                f *= 1 + gt
+                e *= 1 + gt
+                pv += f / (1 + r) ** t
+            tv = (e * mult_x - debt + cash) / shares
+            if tv > 0:
+                m["dcfx"] = (pv + tv / (1 + r) ** 5) * up
+    if "ddm2" in W and rate:
+        m["ddm2"] = dcf(rate, clamp(g0 if g0 is not None else 0.03, 0.0, 0.08), r, 5) * up
     if "target" in W and tgt and have_t:
         m["target"] = tgt
 
@@ -475,12 +508,12 @@ def save_snapshot(stocks, day):
     path = os.path.join(HIST_DIR, f"snapshot_{day}.csv")
     with open(path, "w", encoding="utf-8-sig", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["date", "key", "name", "group", "etf", "price", "bear", "fair", "bull", "conf"])
+        w.writerow(["date", "key", "name", "group", "etf", "price", "bear", "fair", "bull", "conf", "ver"])
         for s in stocks:
             if not s.get("ok") or s.get("cur") == "":   # 資料不足、或 ETF 抓不到市價者不存
                 continue
             w.writerow([day, f'{s["mk"]}:{s["tk"]}', s["name"], s.get("grp", "ETF"), 1 if s.get("etf") else 0,
-                        s["price"], s["sc"][0]["v"], s["sc"][1]["v"], s["sc"][2]["v"], s["conf"]["score"]])
+                        s["price"], s["sc"][0]["v"], s["sc"][1]["v"], s["sc"][2]["v"], s["conf"]["score"], MODEL_VER])
     return path
 
 

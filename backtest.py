@@ -22,6 +22,8 @@ def load():
         with open(p, encoding="utf-8-sig", newline="") as f:
             rows = list(csv.DictReader(f))
         if rows:
+            for r in rows:
+                r["ver"] = r.get("ver") or "v1"      # 早期快照沒有版本欄，一律視為 v1
             snaps[datetime.strptime(rows[0]["date"], "%Y-%m-%d").date()] = {r["key"]: r for r in rows}
     return snaps
 
@@ -51,7 +53,7 @@ def spearman(a, b):
     return sum((x - ma) * (y - mb) for x, y in zip(ra, rb)) / (da * db)
 
 
-def pairs_for(snaps, days, etf):
+def pairs_for(snaps, days, etf, ver=None):
     """每個起始日配上約 days 天後的快照，回傳 {起始日: [(預測潛在報酬, 實際報酬, 信賴度), ...]}"""
     dates = sorted(snaps)
     out = {}
@@ -64,7 +66,7 @@ def pairs_for(snaps, days, etf):
         lst = []
         for k, r0 in snaps[d0].items():
             r1 = snaps[d1].get(k)
-            if not r1 or (r0["etf"] == "1") != etf:
+            if not r1 or (r0["etf"] == "1") != etf or (ver and r0["ver"] != ver):
                 continue
             p0, p1 = float(r0["price"]), float(r1["price"])
             real = p1 / p0 - 1 if p0 > 0 else None
@@ -103,12 +105,16 @@ def build_html(snaps):
     days = sorted(snaps)
     head = (f"目前累積 {len(days)} 天快照（{days[0]} 到 {days[-1]}）。" if days else "目前還沒有任何快照。")
     rows = ""
+    vers = sorted({r["ver"] for snap in snaps.values() for r in snap.values()}) or ["v1"]
     for label, d in HORIZONS:
-        s = summarize(pairs_for(snaps, d, False))
+      for ver in vers:
+        s = summarize(pairs_for(snaps, d, False, ver))
+        tag = f"{label}（{ver}）" if len(vers) > 1 else label
         if s["days"] == 0 or s["ic"] is None:
-            rows += f"<tr><td>{label}</td><td colspan=\"6\">資料累積中，還沒有間隔夠久的快照可以對照</td></tr>"
+            if ver == vers[-1]:
+                rows += f"<tr><td>{tag}</td><td colspan=\"6\">資料累積中，還沒有間隔夠久的快照可以對照</td></tr>"
         else:
-            rows += (f"<tr><td>{label}</td><td>{s['days']}</td><td>{s['n']}</td><td>{s['ic']:+.2f}</td><td>{pct(s['ic_pos'])}</td>"
+            rows += (f"<tr><td>{tag}</td><td>{s['days']}</td><td>{s['n']}</td><td>{s['ic']:+.2f}</td><td>{pct(s['ic_pos'])}</td>"
                      f"<td>{pct(s['spread'], True)}</td><td>{pct(s['pred'], True)} / {pct(s['real'], True)}</td></tr>")
     return f"""<!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8">
@@ -133,6 +139,7 @@ small,li{{color:var(--mute)}}a{{color:var(--accent)}}
 <div class="box"><b>怎麼看</b><ul>
 <li><b>排序相關（IC）</b>：同一天裡，潛在報酬高的股票，後來是不是也漲得比較多。大於 0 代表有效，0 附近代表沒有預測力，小於 0 代表反向。通常要持續高於 0.05 才算有意義。</li>
 <li><b>前三分之一減後三分之一</b>：潛在報酬最高的三分之一，和最低的三分之一，後來平均漲幅的差距。為正代表模型挑得對。</li>
+<li><b>模型版本（v1、v2…）</b>：每次估值方法或權重改版，版本號就往上加一。不同版本的預測分開統計，才看得出改版有沒有變準；最新版本累積的天數最少，所以數字最晚出現。</li>
 <li><b>預測平均 / 實際平均</b>：模型平均預測的報酬，和實際平均報酬。差很多，代表整體偏樂觀或偏悲觀。</li>
 </ul>
 <small>限制：只比較股價漲跌，不含股利和匯率；不同起始日的樣本互相重疊，且同一時期的股票會一起受大盤影響，所以資料天數不多時，請當作參考，不要過度解讀。分析師調整、模型修改之後，新舊結果混在一起，也會影響判讀。</small></div>
